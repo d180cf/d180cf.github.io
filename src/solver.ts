@@ -1,229 +1,218 @@
 ﻿/// <reference path="pattern.ts" />
 /// <reference path="movegen.ts" />
 /// <reference path="tt.ts" />
+/// <reference path="benson.ts" />
+/// <reference path="benson.ts" />
+/// <reference path="ann.ts" />
+/// <reference path="gf2.ts" />
 
 module tsumego {
-    'use strict';
-
-    interface Estimator<Node> {
-        (board: Node): number;
+    interface Node {
+        hash: number;
+        play(move: stone): number;
+        undo(): stone;
     }
 
-    export interface Player<Move> {
-        play(color: Color, move: Move): void;
-        undo(): void;
-        done(color: Color, move: Move, comment: string): void;
-        loss(color: Color, move: Move, response: Move): void;
+    export function solve(args: solve.Args): stone {
+        const g = solve.start(args);
+
+        let s = g.next();
+
+        while (!s.done)
+            s = g.next();
+
+        return s.value;
     }
 
-    /** Returns values in 1..path.length-1 range.
-        If no repetition found, returns nothing.  */
-    function findrepd<Node extends Hasheable>(path: Node[], b: Node) {
-        for (let i = path.length - 1; i > 0; i--)
-            if (b.hash() == path[i - 1].hash())
-                return i;
-    }
+    export namespace solve {
+        export interface Args {
+            root: Node;
+            color: number;
+            nkt?: number;
+            tt?: TT;
+            expand(node: Node, color: number): stone[];
+            status(node: Node): number;
+            alive?(node: Node): boolean;
+            debug?: boolean;
+            stats?: {
+                nodes: number;
+                depth: number;
+            };
+        }
 
-    function best<Move>(s1: Result<Move>, s2: Result<Move>, c: Color) {
-        let r1 = s1 && s1.color;
-        let r2 = s2 && s2.color;
+        export function* start({root: board, color, nkt = 0, tt = new TT, expand, status, alive, stats, debug}: Args) {
+            /** Moves that require a ko treat are considered last.
+                That's not just perf optimization: the search depends on this. */
+            const sa = new SortedArray<stone, { d: number, w: number; }>((a, b) =>
+                b.d - a.d || // moves that require a ko treat are considered last
+                b.w - a.w);  // first consider moves that lead to a winning position
 
-        if (!s1 && !s2)
-            return;
+            const path: number[] = []; // path[i] = hash of the i-th position
+            const tags: number[] = []; // tags[i] = hash of the path to the i-th position
 
-        if (!s1)
-            return r2 * c > 0 ? s2 : s1;
+            function* solve(color: number, nkt: number) {
+                const depth = path.length;
+                const prevb = depth < 1 ? 0 : path[depth - 1];
+                const hashb = board.hash;
+                const ttres = tt.get(hashb, color, nkt);
 
-        if (!s2)
-            return r1 * c > 0 ? s1 : s2;
+                stats && (stats.depth = depth, yield);
 
-        if (r1 * c > 0 && r2 * c > 0)
-            return s1.repd > s2.repd ? s1 : s2;
+                if (ttres) {
+                    debug && (yield 'reusing cached solution: ' + stone.toString(ttres));
+                    return stone.changetag(ttres, infty);
+                }
 
-        if (r1 * c < 0 && r2 * c < 0)
-            return s1.repd < s2.repd ? s1 : s2;
+                let result: stone;
+                let mindepth = infty;
 
-        return (r1 - r2) * c > 0 ? s1 : s2;
-    }
+                const nodes = sa.reset();
 
-    const wins = (color: number, result: number) => color * result > 0;
+                for (const move of expand(board, color)) {
+                    board.play(move);
+                    const hash = board.hash;
+                    board.undo();
 
-    Array.from = Array.from || function (iterable) {
-        const array = [];
-        for (const item of iterable)
-            array.push(item);
-        return array;
-    };
+                    let d = depth - 1;
 
-    export function* _solve<Node extends Hasheable, Move>(
-        path: Node[],
-        color: Color,
-        nkt: number,
-        tt: TT<Move>,
-        expand: Generator<Node, Move>,
-        status: Estimator<Node>,
-        player?: Player<Move>) {
+                    while (d >= 0 && path[d] != hash)
+                        d = d > 0 && path[d] == path[d - 1] ? -1 : d - 1;
 
-        type R = Result<Move>;
+                    d++;
 
-        function* solve(
-            path: Node[],
-            color: Color,
-            nkt: number,
-            ko: boolean): IterableIterator<R> {
-
-            yield; // entering the node
-
-            if (ko) {
-                // since moves that require to spend a ko treat are considered
-                // last, by this moment all previous moves have been searched
-                // and resulted in a loss; hence the only option here is to spend
-                // a ko treat and repeat the position
-                nkt -= color;
-                path = path.slice(-2);
-            }
-
-            const depth = path.length;
-            const board = path[depth - 1];
-            const ttres = tt.get(board, color, nkt);
-
-            if (ttres) {
-                player && player.done(ttres.color, ttres.move, null);
-                return ttres;
-            }
-
-            let result: R;
-            let mindepth = infty;
-
-            // TODO: better to use array comprehensions here
-            const leafs = Array.from(function* () {
-                for (const {b, m} of expand(board, color)) {
-                    const d = findrepd(path, b);
-                    const ko = d < depth;
+                    if (!d) d = infty;
 
                     if (d < mindepth)
                         mindepth = d;
 
-                    // the move makes sense if it doesn't repeat
-                    // a previous position or the current player
-                    // has a ko treat elsewhere on the board and
-                    // can use it to repeat the local position
-                    if (!ko || color * nkt > 0) {
-                        yield {
-                            b: b,
-                            m: m,
-                            ko: ko,
-                            nkt: ko ? nkt - color : nkt
-                        };
-                    }
+                    // there are no ko treats to play this move,
+                    // so play a random move elsewhere and yield
+                    // the turn to the opponent; this is needed
+                    // if the opponent is playing useless ko-like
+                    // moves that do not help even if all these
+                    // ko fights are won
+                    if (d <= depth && nkt * color <= 0)
+                        continue;
+
+                    // check if this node has already been solved
+                    const r = tt.get(hash, -color, d <= depth ? nkt - color : nkt);
+
+                    sa.insert(stone.changetag(move, d), {
+                        d: d,
+                        w: stone.color(r) * color
+                    });
                 }
-            } ());
 
-            // moves that require a ko treat are considered last
-            // that's not just perf optimization: the search depends on this
-            leafs.sort((lhs, rhs) => (rhs.nkt - lhs.nkt) * color);
+                // Consider making a pass as well. Passing locally is like
+                // playing a move elsewhere and yielding the turn to the 
+                // opponent locally: it doesn't affect the local position,
+                // but resets the local history of moves. This is why passing
+                // may be useful: a position may be unsolvable with the given
+                // history of moves, but once it's reset, the position can be
+                // solved despite the move is yilded to the opponent.
+                sa.insert(0, { d: infty, w: 0 });
 
-            for (const {b, m, ko} of leafs) {
-                let s: R;
+                for (const move of nodes) {
+                    const d = !move ? infty : stone.tag(move);
+                    let s: stone;
 
-                if (status(b) > 0) {
-                    // black wins by capturing the white's stones
-                    s = { color: +1, repd: infty };
-                } else {
-                    path.push(b);
-                    player && player.play(color, m);
+                    // this is a hash of the path: reordering moves must change the hash;
+                    // 0x87654321 is meant to be a generator of the field, but I didn't
+                    // know how to find such a generator, so I just checked that first
+                    // million powers of this element are unique
+                    const h = gf32.mul(prevb != hashb ? prevb : 0, 0x87654321) ^ hashb;
 
-                    // the opponent makes a move
-                    const s_move: R = yield* solve(path, -color, nkt, ko);
+                    tags.push(h & ~15 | (nkt & 7) << 1 | (color < 0 ? 1 : 0));
+                    path.push(hashb);
+                    stats && stats.nodes++;
 
-                    if (s_move && wins(s_move.color, -color)) {
-                        s = s_move;
+                    if (!move) {
+                        debug && (yield 'yielding the turn to the opponent');
+                        const i = tags.lastIndexOf(tags[depth], -2);
+
+                        if (i >= 0) {
+                            // yielding the turn again means that both sides agreed on
+                            // the group's status; check the target's status and quit
+                            s = stone.nocoords(status(board), i + 1);
+                        } else {
+                            // play a random move elsewhere and yield
+                            // the turn to the opponent; playing a move
+                            // elsewhere resets the local history of moves
+                            s = yield* solve(-color, nkt);
+                        }
                     } else {
-                        // the opponent passes
-                        player && player.play(-color, null);
-                        const s_pass: R = yield* solve(path, color, nkt, ko);
-                        player && player.undo();
-                        const s_asis: R = { color: status(b), repd: infty };
+                        board.play(move);
+                        debug && (yield);
 
-                        // the opponent can either make a move or pass if it thinks
-                        // that making a move is a loss, while the current player
-                        // can either pass again to count the result or make two
-                        // moves in a row
-                        s = best(s_move, best(s_asis, s_pass, color), -color);
+                        s = status(board) > 0 ? stone.nocoords(+1, infty) :
+                            // white has secured the group: black cannot
+                            // capture it no matter how well it plays
+                            alive && alive(board) ? stone.nocoords(-1, infty) :
+                                // let the opponent play the best move
+                                d > depth ? yield* solve(-color, nkt) :
+                                    // this move repeat a previously played position:
+                                    // spend a ko treat and yield the turn to the opponent
+                                    (debug && (yield 'spending a ko treat'), yield* solve(-color, nkt - color));
+
+                        board.undo();
                     }
 
+                    debug && (yield 'the outcome of this move: ' + stone.toString(s));
                     path.pop();
-                    player && player.undo();
+                    tags.pop();
+
+                    // the min value of repd is counted only for the case
+                    // if all moves result in a loss; if this happens, then
+                    // the current player can say that the loss was caused
+                    // by the absence of ko treats and point to the earliest
+                    // repetition in the path
+                    if (s * color < 0 && move)
+                        mindepth = min(mindepth, d > depth ? stone.tag(s) : d);
+
+                    // the winning move may depend on a repetition, while
+                    // there can be another move that gives the same result
+                    // uncondtiionally, so it might make sense to continue
+                    // searching in such cases
+                    if (s * color > 0) {
+                        // if the board b was reached via path p has a winning
+                        // move m that required to spend a ko treat and now b
+                        // is reached via path q with at least one ko treat left,
+                        // that ko treat can be spent to play m if it appears in q
+                        // and then win the position again; this is why such moves
+                        // are stored as unconditional (repd = infty)
+                        result = stone.changetag(move || stone.nocoords(color, 0), d > depth && move ? stone.tag(s) : d);
+                        break;
+                    }
                 }
 
-                // the min value of repd is counted only for the case
-                // if all moves result in a loss; if this happens, then
-                // the current player can say that the loss was caused
-                // by the absence of ko treats and point to the earliest
-                // repetition in the path
-                if (s.repd < mindepth)
-                    mindepth = s.repd;
+                // if there is no winning move, record a loss
+                if (!result)
+                    result = stone.nocoords(-color, mindepth);
 
-                // the winning move may depend on a repetition, while
-                // there can be another move that gives the same result
-                // uncondtiionally, so it might make sense to continue
-                // searching in such cases
-                if (wins(s.color, color)) {
-                    result = {
-                        color: color,
-                        repd: s.repd,
-                        move: m
-                    };
+                // if the solution doesn't depend on a ko above the current node,
+                // it can be stored and later used unconditionally as it doesn't
+                // depend on a path that leads to the node; this stands true if all
+                // such solutions are stored and never removed from the table; this
+                // can be proved by trying to construct a path from a node in the
+                // proof tree to the root node
+                if (stone.tag(result) > depth + 1)
+                    tt.set(hashb, color, result, nkt);
 
-                    break;
-                }
+                return result;
             }
 
-            // if there is no winning move, record a loss
-            if (!result) {
-                result = { color: -color, repd: mindepth };
-                player && player.loss(color, null, null);
-            } else {
-                player && player.done(result.color, result.move, null);
+            const moves: stone[] = [];
+            let move: stone;
+
+            while (move = board.undo())
+                moves.unshift(move);
+
+            for (move of moves) {
+                path.push(board.hash);
+                board.play(move);
             }
 
-            if (ko) {
-                // the (dis)proof for the node may or may not intersect with
-                // previous nodes in the path (the information about this is
-                // not kept anywhere) and hence it has to be assumed that the
-                // solution intersects with the path and thus cannot be reused
-                result.repd = 0;
-            }
-
-            // if the solution doesn't depend on a ko above the current node,
-            // it can be stored and later used unconditionally as it doesn't
-            // depend on a path that leads to the node; this stands true if all
-            // such solutions are stored and never removed from the table; this
-            // can be proved by trying to construct a path from a node in the
-            // proof tree to the root node
-            if (result.repd > depth) {
-                tt.set(board, color, {
-                    color: result.color,
-                    move: result.move,
-                    repd: infty
-                }, nkt);
-            }
-
-            return result;            
+            return yield* solve(color, nkt);
         }
-
-        return yield* solve(path, color, nkt, false);
-    }
-
-    export function solve<Node extends Hasheable, Move>(
-        path: Node[],
-        color: Color,
-        nkt: number,
-        tt: TT<Move>,
-        expand: Generator<Node, Move>,
-        status: Estimator<Node>,
-        player?: Player<Move>) {
-
-        return result(_solve(path, color, nkt, tt, expand, status, player));
     }
 }
