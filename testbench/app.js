@@ -78,7 +78,6 @@ var testbench;
 })(testbench || (testbench = {}));
 var tsumego;
 (function (tsumego) {
-    tsumego.infty = 777;
     tsumego.min = function (a, b) {
         return a < b ? a : b;
     };
@@ -196,33 +195,34 @@ var tsumego;
     tsumego.rcl = function (x, n) {
         return x << n | x >>> 32 - n;
     };
+    function memoized(fn, hashArgs) {
+        let cache = {};
+        return fn && function (x) {
+            let h = hashArgs(x);
+            return h in cache ? cache[h] : cache[h] = fn(x);
+        };
+    }
+    tsumego.memoized = memoized;
 })(tsumego || (tsumego = {}));
 var tsumego;
 (function (tsumego) {
     let kCoord = 0x20000000;
     let kColor = 0x40000000;
     let kWhite = 0x80000000;
-    let kTagdw = 0x00FFFF00;
     function stone(x, y, color) {
         return x | y << 4 | kCoord | (color && kColor) | color & kWhite;
     }
     tsumego.stone = stone;
     var stone;
     (function (stone) {
-        stone.tag = function (m) {
-            return (m & kTagdw) >> 8;
-        };
-        stone.nocoords = function (color, tag) {
-            return tag << 8 & kTagdw | kColor | color & kWhite;
+        stone.nocoords = function (color) {
+            return kColor | color & kWhite;
         };
         stone.color = function (m) {
             return m & kColor && (m & kWhite ? -1 : +1);
         };
         stone.hascoords = function (m) {
             return !!(m & kCoord);
-        };
-        stone.changetag = function (m, tag) {
-            return m & ~kTagdw | tag << 8 & kTagdw;
         };
         stone.x = function (m) {
             return m & 15;
@@ -423,148 +423,160 @@ var tsumego;
     })(profile = tsumego.profile || (tsumego.profile = {}));
 })(tsumego || (tsumego = {}));
 /** Generic LL(*) recursive descent parser. */
-var SDP;
-(function (SDP) {
-    let Pattern = (function () {
-        function Pattern(_text, _exec) {
-            _classCallCheck(this, Pattern);
+var tsumego;
+(function (tsumego) {
+    var parser;
+    (function (parser) {
+        let Pattern = (function () {
+            function Pattern(_text, _exec) {
+                _classCallCheck(this, Pattern);
 
-            this._text = _text;
-            this._exec = _exec;
+                this._text = _text;
+                this._exec = _exec;
+            }
+
+            Pattern.prototype.toString = function toString() {
+                return this._text;
+            };
+
+            Pattern.prototype.exec = function exec(str, pos) {
+                let r = this._exec.call(null, str, pos || 0);
+                //console.log(this + '', str.slice(pos, pos + 10), r);
+                if (typeof pos === 'number') return r;
+                if (r && r[1] == str.length) return r[0];
+                return null;
+            };
+
+            Pattern.prototype.map = function map(fn) {
+                var _this = this;
+
+                return $(':' + this, function (str, pos) {
+                    let r = _this.exec(str, pos);
+                    return r ? [fn(r[0]), r[1]] : null;
+                });
+            };
+
+            Pattern.prototype.take = function take(i) {
+                return this.map(function (r) {
+                    return r[i];
+                });
+            };
+
+            Pattern.prototype.slice = function slice(from, to) {
+                return this.map(function (r) {
+                    return r.slice(from, to);
+                });
+            };
+
+            /** [["A", 1], ["B", 2]] -> { A: 1, B: 2 } */
+
+            Pattern.prototype.fold = function fold(k, v) {
+                let merge = arguments.length <= 2 || arguments[2] === undefined ? function (a, b) {
+                    return b;
+                } : arguments[2];
+
+                return this.map(function (r) {
+                    let m = {};
+                    for (let p of r) m[p[k]] = merge(m[p[k]], p[v]);
+                    return m;
+                });
+            };
+
+            Pattern.prototype.rep = function rep() {
+                var _this2 = this;
+
+                let min = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
+
+                return $(min + '*' + this, function (str, pos) {
+                    let res = [];
+                    let r;
+                    while (r = _this2.exec(str, pos)) {
+                        res.push(r[0]);
+                        pos = r[1];
+                    }
+                    return res.length >= min ? [res, pos] : null;
+                });
+            };
+
+            return Pattern;
+        })();
+
+        parser.Pattern = Pattern;
+        function $(x, s) {
+            if (typeof s === 'function') return new Pattern(x, s);
+            if (arguments.length > 1) return seq.apply(null, arguments);
+            if (x instanceof Pattern) return x;
+            if (x instanceof RegExp) return rgx(x);
+            if (typeof x === 'string') return txt(x);
         }
-
-        Pattern.prototype.toString = function toString() {
-            return this._text;
-        };
-
-        Pattern.prototype.exec = function exec(str, pos) {
-            let r = this._exec.call(null, str, pos || 0);
-            //console.log(this + '', str.slice(pos, pos + 10), r);
-            if (typeof pos === 'number') return r;
-            if (r && r[1] == str.length) return r[0];
-            return null;
-        };
-
-        Pattern.prototype.map = function map(fn) {
-            var _this = this;
-
-            return $(':' + this, function (str, pos) {
-                let r = _this.exec(str, pos);
-                return r ? [fn(r[0]), r[1]] : null;
+        parser.$ = $;
+        function rgx(r) {
+            return $(r + '', function (str, pos) {
+                let m = r.exec(str.slice(pos));
+                return m && m.index == 0 ? [m[0], pos + m[0].length] : null;
             });
-        };
-
-        Pattern.prototype.take = function take(i) {
-            return this.map(function (r) {
-                return r[i];
+        }
+        function txt(s) {
+            return $('"' + s + '"', function (str, pos) {
+                return str.slice(pos, pos + s.length) == s ? [s, pos + s.length] : null;
             });
-        };
+        }
+        function seq() {
+            for (var _len2 = arguments.length, ps = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+                ps[_key2] = arguments[_key2];
+            }
 
-        Pattern.prototype.slice = function slice(from, to) {
-            return this.map(function (r) {
-                return r.slice(from, to);
-            });
-        };
-
-        /** [["A", 1], ["B", 2]] -> { A: 1, B: 2 } */
-
-        Pattern.prototype.fold = function fold(k, v) {
-            return this.map(function (r) {
-                let m = {};
-                for (let p of r) m[p[k]] = p[v];
-                return m;
-            });
-        };
-
-        Pattern.prototype.rep = function rep() {
-            var _this2 = this;
-
-            let min = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
-
-            return $(min + '*' + this, function (str, pos) {
+            return $('(' + ps.join(' ') + ')', function (str, pos) {
                 let res = [];
-                let r;
-                while (r = _this2.exec(str, pos)) {
+                for (let p of ps) {
+                    let r = $(p).exec(str, pos);
+                    if (!r) return null;
                     res.push(r[0]);
                     pos = r[1];
                 }
-                return res.length >= min ? [res, pos] : null;
+                return [res, pos];
             });
-        };
-
-        return Pattern;
-    })();
-
-    SDP.Pattern = Pattern;
-    function $(x, s) {
-        if (typeof s === 'function') return new Pattern(x, s);
-        if (arguments.length > 1) return seq.apply(null, arguments);
-        if (x instanceof Pattern) return x;
-        if (x instanceof RegExp) return rgx(x);
-        if (typeof x === 'string') return txt(x);
-    }
-    SDP.$ = $;
-    function rgx(r) {
-        return $(r + '', function (str, pos) {
-            let m = r.exec(str.slice(pos));
-            return m && m.index == 0 ? [m[0], pos + m[0].length] : null;
-        });
-    }
-    function txt(s) {
-        return $('"' + s + '"', function (str, pos) {
-            return str.slice(pos, pos + s.length) == s ? [s, pos + s.length] : null;
-        });
-    }
-    function seq() {
-        for (var _len2 = arguments.length, ps = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-            ps[_key2] = arguments[_key2];
         }
-
-        return $('(' + ps.join(' ') + ')', function (str, pos) {
-            let res = [];
-            for (let p of ps) {
-                let r = $(p).exec(str, pos);
-                if (!r) return null;
-                res.push(r[0]);
-                pos = r[1];
-            }
-            return [res, pos];
-        });
-    }
-})(SDP || (SDP = {}));
+    })(parser = tsumego.parser || (tsumego.parser = {}));
+})(tsumego || (tsumego = {}));
 /// <reference path="rdp.ts" />
 /**
  * SGF parser.
  *
- * http://www.red-bean.com/sgf/
+ * www.red-bean.com/sgf
  */
-var SGF;
-(function (SGF) {
-    let $ = SDP.$;
-    /**
-     * Parses an SGF input according to these rules:
-     *
-     *      val = `[` ... `]`
-     *      tag = 1*(`A`..`Z`) *val
-     *      stp = `;` *tag
-     *      sgf = `(` *stp *sgf `)`
-     *
-     * Returns AST of the input.
-     */
-    function parse(source) {
-        let wsp = $(/\s*/);
-        let val = $(wsp, /\[.*?\]/).take(1).slice(+1, -1);
-        let tag = $(wsp, /\w+/, val.rep()).slice(1);
-        let stp = $(wsp, ';', tag.rep()).take(2).fold(0, 1);
-        let sgf = $(wsp, '(', stp.rep(), $('sgf', function (s, i) {
-            return sgf.exec(s, i);
-        }).rep(), wsp, ')', wsp).map(function (r) {
-            return { steps: r[2], vars: r[3] };
-        });
-        return sgf.exec(source);
-    }
-    SGF.parse = parse;
-})(SGF || (SGF = {}));
+var tsumego;
+(function (tsumego) {
+    var SGF;
+    (function (SGF) {
+        let $ = tsumego.parser.$;
+        /**
+         * Parses an SGF input according to these rules:
+         *
+         *      val = `[` ... `]`
+         *      tag = 1*(`A`..`Z`) *val
+         *      stp = `;` *tag
+         *      sgf = `(` *stp *sgf `)`
+         *
+         * Returns AST of the input.
+         */
+        function parse(source) {
+            let wsp = $(/\s*/);
+            let val = $(wsp, /\[[^\]]*?\]/).take(1).slice(+1, -1);
+            let tag = $(wsp, /\w+/, val.rep()).slice(1);
+            let stp = $(wsp, ';', tag.rep()).take(2).fold(0, 1, function (a, b) {
+                return (a || []).concat(b);
+            });
+            let sgf = $(wsp, '(', stp.rep(), $('sgf', function (s, i) {
+                return sgf.exec(s, i);
+            }).rep(), wsp, ')', wsp).map(function (r) {
+                return { steps: r[2], vars: r[3] };
+            });
+            return sgf.exec(source);
+        }
+        SGF.parse = parse;
+    })(SGF = tsumego.SGF || (tsumego.SGF = {}));
+})(tsumego || (tsumego = {}));
 /// <reference path="utils.ts" />
 /// <reference path="move.ts" />
 /// <reference path="rand.ts" />
@@ -686,7 +698,7 @@ var tsumego;
         Board.prototype.initFromSGF = function initFromSGF(source, nvar) {
             var _this4 = this;
 
-            let sgf = typeof source === 'string' ? SGF.parse(source) : source;
+            let sgf = typeof source === 'string' ? tsumego.SGF.parse(source) : source;
             if (!sgf) throw new SyntaxError('Invalid SGF: ' + source);
             let setup = sgf.steps[0]; // ;FF[4]SZ[19]...
             let size = +setup['SZ'];
@@ -1499,7 +1511,7 @@ var tsumego;
             let winner = nkt >= entry.b(e) ? +1 : nkt <= entry.w(s) ? -1 : 0; // not solved for this number of ko treats
             if (!winner) return 0;
             // the move must be dropped if the outcome is a loss
-            return winner * color > 0 && entry.m(e) ? tsumego.stone(entry.x(e), entry.y(e), winner) : tsumego.stone.nocoords(winner, 0);
+            return winner * color > 0 && entry.m(e) ? tsumego.stone(entry.x(e), entry.y(e), winner) : tsumego.stone.nocoords(winner);
         };
 
         /**
@@ -1800,6 +1812,16 @@ var tsumego;
 /// <reference path="gf2.ts" />
 var tsumego;
 (function (tsumego) {
+    let infty = 255;
+    var repd;
+    (function (repd_1) {
+        repd_1.get = function (move) {
+            return move >> 8 & 255;
+        };
+        repd_1.set = function (move, repd) {
+            return move & ~0xFF00 | repd << 8;
+        };
+    })(repd || (repd = {}));
     function solve(args) {
         let g = solve.start(args);
         let s = g.next();
@@ -1822,6 +1844,10 @@ var tsumego;
             let stats = _ref.stats;
             let debug = _ref.debug;
 
+            // cache results from static analysis as it's quite slow
+            alive = tsumego.memoized(alive, function (board) {
+                return board.hash;
+            });
             /** Moves that require a ko treat are considered last.
                 That's not just perf optimization: the search depends on this. */
             let sa = new tsumego.SortedArray(function (a, b) {
@@ -1837,10 +1863,10 @@ var tsumego;
                 stats && (stats.depth = depth, yield);
                 if (ttres) {
                     debug && (yield 'reusing cached solution: ' + tsumego.stone.toString(ttres));
-                    return tsumego.stone.changetag(ttres, tsumego.infty);
+                    return repd.set(ttres, infty);
                 }
                 let result;
-                let mindepth = tsumego.infty;
+                let mindepth = infty;
                 let nodes = sa.reset();
                 for (let move of expand(board, color)) {
                     board.play(move);
@@ -1849,7 +1875,7 @@ var tsumego;
                     let d = depth - 1;
                     while (d >= 0 && path[d] != hash) d = d > 0 && path[d] == path[d - 1] ? -1 : d - 1;
                     d++;
-                    if (!d) d = tsumego.infty;
+                    if (!d) d = infty;
                     if (d < mindepth) mindepth = d;
                     // there are no ko treats to play this move,
                     // so play a random move elsewhere and yield
@@ -1860,7 +1886,7 @@ var tsumego;
                     if (d <= depth && nkt * color <= 0) continue;
                     // check if this node has already been solved
                     let r = tt.get(hash, -color, d <= depth ? nkt - color : nkt);
-                    sa.insert(tsumego.stone.changetag(move, d), {
+                    sa.insert(repd.set(move, d), {
                         d: d,
                         w: tsumego.stone.color(r) * color
                     });
@@ -1872,9 +1898,9 @@ var tsumego;
                 // may be useful: a position may be unsolvable with the given
                 // history of moves, but once it's reset, the position can be
                 // solved despite the move is yilded to the opponent.
-                sa.insert(0, { d: tsumego.infty, w: 0 });
+                sa.insert(0, { d: infty, w: 0 });
                 for (let move of nodes) {
-                    let d = !move ? tsumego.infty : tsumego.stone.tag(move);
+                    let d = !move ? infty : repd.get(move);
                     let s;
                     // this is a hash of the path: reordering moves must change the hash;
                     // 0x87654321 is meant to be a generator of the field, but I didn't
@@ -1890,7 +1916,7 @@ var tsumego;
                         if (i >= 0) {
                             // yielding the turn again means that both sides agreed on
                             // the group's status; check the target's status and quit
-                            s = tsumego.stone.nocoords(status(board), i + 1);
+                            s = repd.set(tsumego.stone.nocoords(status(board)), i + 1);
                         } else {
                             // play a random move elsewhere and yield
                             // the turn to the opponent; playing a move
@@ -1900,10 +1926,10 @@ var tsumego;
                     } else {
                         board.play(move);
                         debug && (yield);
-                        s = status(board) > 0 ? tsumego.stone.nocoords(+1, tsumego.infty) :
+                        s = status(board) > 0 ? repd.set(tsumego.stone.nocoords(+1), infty) :
                         // white has secured the group: black cannot
                         // capture it no matter how well it plays
-                        alive && alive(board) ? tsumego.stone.nocoords(-1, tsumego.infty) :
+                        color < 0 && alive && alive(board) ? repd.set(tsumego.stone.nocoords(-1), infty) :
                         // let the opponent play the best move
                         d > depth ? (yield* solve(-color, nkt)) : (
                         // this move repeat a previously played position:
@@ -1919,7 +1945,7 @@ var tsumego;
                     // the current player can say that the loss was caused
                     // by the absence of ko treats and point to the earliest
                     // repetition in the path
-                    if (s * color < 0 && move) mindepth = tsumego.min(mindepth, d > depth ? tsumego.stone.tag(s) : d);
+                    if (s * color < 0 && move) mindepth = tsumego.min(mindepth, d > depth ? repd.get(s) : d);
                     // the winning move may depend on a repetition, while
                     // there can be another move that gives the same result
                     // uncondtiionally, so it might make sense to continue
@@ -1931,23 +1957,19 @@ var tsumego;
                         // that ko treat can be spent to play m if it appears in q
                         // and then win the position again; this is why such moves
                         // are stored as unconditional (repd = infty)
-                        result = tsumego.stone.changetag(move || tsumego.stone.nocoords(color, 0), d > depth && move ? tsumego.stone.tag(s) : d);
+                        result = repd.set(move || tsumego.stone.nocoords(color), d > depth && move ? repd.get(s) : d);
                         break;
                     }
                 }
                 // if there is no winning move, record a loss
-                if (!result) result = tsumego.stone.nocoords(-color, mindepth);
-                debug && (yield 'outcome: ' + tsumego.stone.toString(result));
+                if (!result) result = repd.set(tsumego.stone.nocoords(-color), mindepth);
                 // if the solution doesn't depend on a ko above the current node,
                 // it can be stored and later used unconditionally as it doesn't
                 // depend on a path that leads to the node; this stands true if all
                 // such solutions are stored and never removed from the table; this
                 // can be proved by trying to construct a path from a node in the
                 // proof tree to the root node
-                if (tsumego.stone.tag(result) > depth + 1) {
-                    tt.set(hashb, color, result, nkt);
-                    debug && (yield 'the outcome is unconditional and thus it is cached');
-                }
+                if (repd.get(result) > depth + 1) tt.set(hashb, color, result, nkt);
                 return result;
             }
             let moves = [];
@@ -1976,18 +1998,18 @@ var testbench;
                 for (let y = 0; y < n; y++) {
                     let c = board.get(x, y);
                     if (!c) continue;
-                    shapes.push("<circle cx=\"" + (10 + x * 20) + "\" cy=\"" + (10 + y * 20) + "\" r=\"9\" " + (c < 0 ? 'fill="white"' : '') + " stroke=\"black\" />");
+                    shapes.push("<use x=\"" + x + "\" y=\"" + y + "\" xlink:href=\"#" + (c > 0 ? 'AB' : 'AW') + "\"/>");
                 }
             }
             let markers = {
                 TR: function TR(x, y) {
-                    return "<polygon points=\"" + [x, y + 3] + " " + [x - 3, y - 3] + " " + [x + 3, y - 3] + "\" fill=\"red\" />";
+                    return "<use x=\"" + x + "\" y=\"" + y + "\" xlink:href=\"#TR\"/>";
                 },
                 SL: function SL(x, y) {
-                    return "<polygon points=\"" + [x - 3, y - 3] + " " + [x + 3, y - 3] + " " + [x + 3, y + 3] + " " + [x - 3, y + 3] + "\" fill=\"red\" />";
+                    return "<use x=\"" + x + "\" y=\"" + y + "\" xlink:href=\"#SQ\"/>";
                 },
                 MA: function MA(x, y) {
-                    return "<line x1=\"" + (x - 3) + "\" y1=\"" + (y - 3) + "\" x2=\"" + (x + 3) + "\" y2=\"" + (y + 3) + "\" stroke=\"red\" />" + ("<line x1=\"" + (x - 3) + "\" y1=\"" + (y + 3) + "\" x2=\"" + (x + 3) + "\" y2=\"" + (y - 3) + "\" stroke=\"red\" />");
+                    return "<use x=\"" + x + "\" y=\"" + y + "\" xlink:href=\"#MA\"/>";
                 }
             };
             for (let mark in markers) {
@@ -1997,15 +2019,18 @@ var testbench;
                     let x = _stone$coords3[0];
                     let y = _stone$coords3[1];
 
-                    let shape = markers[mark](10 + x * 20, 10 + y * 20);
+                    let shape = markers[mark](x, y);
                     shapes.push(shape);
                 }
             }
             let wrapper = document.createElement('div');
-            wrapper.innerHTML = "\n            <svg width=\"100%\" viewBox=\"0 0 " + n * 20 + " " + n * 20 + "\">\n                <defs>\n                    <pattern id=\"grid\" x=\"10\" y=\"10\" width=\"20\" height=\"20\" patternUnits=\"userSpaceOnUse\">\n                        <path d=\"M 20 0 L 0 0 0 20\" fill=\"none\" stroke=\"black\" />\n                    </pattern>\n                </defs>\n\n                <rect x=\"10\" y=\"10\" width=\"" + (n * 20 - 19) + "\" height=\"" + (n * 20 - 19) + "\" fill=\"url(#grid)\" />\n                " + shapes.join('\r\n') + "\n            </svg>";
-            return Object.assign(wrapper.querySelector('svg'), {
+            wrapper.innerHTML = "\n            <svg version=\"1.0\" xmlns=\"http://www.w3.org/2000/svg\"\n                 xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n                 width=\"100%\"\n                 viewBox=\"-0.5 -0.5 " + n + " " + n + "\">\n              <style>\n                * { stroke-width: 0.05 }\n              </style>\n              <defs>\n                <pattern id=\"grid\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" patternUnits=\"userSpaceOnUse\">\n                  <path d=\"M 1 0 L 0 0 0 1\" fill=\"none\" stroke=\"black\"></path>\n                </pattern>\n\n                <circle id=\"AW\" r=\"0.475\" fill=\"white\" stroke=\"black\"></circle>\n                <circle id=\"AB\" r=\"0.475\" fill=\"black\" stroke=\"black\"></circle>\n                <circle id=\"CR\" r=\"0.25\" fill=\"none\" stroke=\"red\"></circle>\n                <path id=\"TR\" d=\"M 0 -0.25 L -0.217 0.125 L 0.217 0.125 Z\" fill=\"none\" stroke=\"red\"></path>\n                <path id=\"MA\" d=\"M -0.25 -0.25 L 0.25 0.25 M 0.25 -0.25 L -0.25 0.25\" fill=\"none\" stroke=\"red\"></path>\n                <path id=\"SQ\" d=\"M -0.25 -0.25 L 0.25 -0.25 L 0.25 0.25 L -0.25 0.25 Z\" fill=\"none\" stroke=\"red\"></path>\n              </defs>\n\n              <rect x=\"0\" y=\"0\" width=\"" + (n - 1) + "\" height=\"" + (n - 1) + "\" fill=\"url(#grid)\" stroke=\"black\" stroke-width=\"0.1\"></rect>\n\n              " + shapes.join('\r\n') + "\n            </svg>";
+            let goban = wrapper.querySelector('svg');
+            return Object.assign(goban, {
                 getStoneCoords: function getStoneCoords(offsetX, offsetY) {
-                    return [Math.round((offsetX - 10) / 35), Math.round((offsetY - 10) / 35)];
+                    let x = offsetX / goban.clientWidth;
+                    let y = offsetY / goban.clientHeight;
+                    return [Math.round(x * n - 0.5), Math.round(y * n - 0.5)];
                 }
             });
         }
@@ -2033,6 +2058,9 @@ var testbench;
     };
     let c2s = function c2s(c) {
         return c > 0 ? 'B' : 'W';
+    };
+    let s2c = function s2c(s) {
+        return s == 'B' ? +1 : s == 'W' ? -1 : 0;
     };
     let cm2s = function cm2s(c, m) {
         return c2s(c) + (Number.isFinite(m) ? ' plays at ' + xy2s(m) : ' passes');
@@ -2201,7 +2229,8 @@ var testbench;
                         let section = addSection(dir.description);
                         for (let path of dir.problems) {
                             send('GET', '/problems/' + path).then(function (sgf) {
-                                let root = SGF.parse(sgf);
+                                let root = tsumego.SGF.parse(sgf);
+                                if (!root) throw SyntaxError('Invalid SGF from ' + path);
                                 for (let nvar = 0; nvar <= root.vars.length; nvar++) addPreview(section, new Board(root, nvar), '?' + path.replace('.sgf', '') + ':' + nvar);
                             })["catch"](function (err) {
                                 console.log(err.stack);
@@ -2219,6 +2248,40 @@ var testbench;
 
                 document.title = source;
                 if (source[0] == ':') lspath = source;
+                let lastsi = 'B+0';
+                document.querySelector('#solve').addEventListener('click', function (e) {
+                    let input = prompt('Color and the number of ext ko treats (-2..+2), e.g. W-2, B+1, W, B:', lastsi);
+                    if (!input) return;
+                    lastsi = input;
+                    let parsed = /^(B|W)([+-][012])?$/.exec(input);
+                    if (!parsed) {
+                        setComment('Invalid input: ' + input);
+                        return;
+                    }
+                    let color = parsed[1];
+                    let nkt = parsed[2];
+
+                    solveAndRender(s2c(color), nkt ? +nkt : 0);
+                });
+                document.querySelector('#reset').addEventListener('click', function (e) {
+                    aim = 0;
+                    rzone = [];
+                    board = new Board(board.size);
+                    renderBoard();
+                });
+                let sgfinput = document.querySelector('#sgf');
+                sgfinput.addEventListener('input', function (e) {
+                    try {
+                        updateSGF(sgfinput.value);
+                    } catch (err) {
+                        // partial input is not valid SGF
+                        if (err instanceof SyntaxError) return;
+                        throw err;
+                    }
+                });
+                document.querySelector('#debug').addEventListener('click', function (e) {
+                    dbgsolve(board, bw == 'W' ? -1 : +1, +nkt);
+                });
                 if (source[0] == ':' && !testbench.ls.data[source]) {
                     board = new Board(+nvar);
                     renderBoard('Add stones, mark possible moves and select target.');
@@ -2226,17 +2289,10 @@ var testbench;
                     return Promise.resolve().then(function () {
                         return source[0] == '(' ? source : source[0] == ':' ? testbench.ls.data[source] : send('GET', '/problems/' + source + '.sgf');
                     }).then(function (sgfdata) {
-                        let sgf = SGF.parse(sgfdata);
-                        let setup = sgf.steps[0];
-                        board = new Board(sgfdata, source[0] != ':' && nvar && +nvar);
-                        aim = stone.fromString((setup['MA'] || ['aa'])[0]);
-                        rzone = (setup['SL'] || []).map(stone.fromString);
-                        board = board.fork(); // drop the history of moves
+                        updateSGF(sgfdata, source[0] != ':' && nvar && +nvar);
                         console.log(sgfdata);
                         console.log(board + '');
                         console.log(board.toStringSGF());
-                        renderBoard();
-                        dbgsolve(board, bw == 'W' ? -1 : +1, +nkt);
                     });
                 }
             }
@@ -2245,6 +2301,17 @@ var testbench;
             alert(err);
         });
     });
+    function updateSGF(sgfdata) {
+        let nvar = arguments.length <= 1 || arguments[1] === undefined ? 0 : arguments[1];
+
+        let sgf = tsumego.SGF.parse(sgfdata);
+        let setup = sgf.steps[0];
+        board = new Board(sgfdata, nvar);
+        aim = stone.fromString((setup['MA'] || ['aa'])[0]);
+        rzone = (setup['SL'] || []).map(stone.fromString);
+        board = board.fork(); // drop the history of moves
+        renderBoard();
+    }
     function renderBoard() {
         let comment = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
@@ -2256,7 +2323,8 @@ var testbench;
             SL: !stone.hascoords(move) && rzone
         });
         ui.addEventListener('click', function (event) {
-            if (!lspath) return;
+            let rb = document.querySelector('input[name="tool"]:checked');
+            if (!lspath || !rb) return;
             event.preventDefault();
             event.stopPropagation();
 
@@ -2266,16 +2334,31 @@ var testbench;
             let y = _ui$getStoneCoords[1];
 
             let c = board.get(x, y);
-            if (event.ctrlKey && c) {
-                aim = stone(x, y, 0);
-            } else if (event.ctrlKey && !c) {
-                let s = stone(x, y, 0);
-                let i = rzone.indexOf(s);
-                if (i < 0) rzone.push(s);else rzone.splice(i, 1);
-            } else if (!c) {
-                board.play(stone(x, y, event.shiftKey ? -1 : +1));
-                board = board.fork(); // drop history
-            } else {
+            switch (rb.value) {
+                case 'MA':
+                    // mark the target                   
+                    aim = c < 0 ? stone(x, y, 0) : 0;
+                    break;
+                case 'SQ':
+                    // extend the r-zone
+                    let s = stone(x, y, 0);
+                    let i = rzone.indexOf(s);
+                    if (i < 0) rzone.push(s);else rzone.splice(i, 1);
+                    break;
+                case 'AB':
+                    // add a black stone
+                    if (c) return;
+                    board.play(stone(x, y, +1));
+                    board = board.fork(); // drop history
+                    break;
+                case 'AW':
+                    // add a white stone
+                    if (c) return;
+                    board.play(stone(x, y, -1));
+                    board = board.fork(); // drop history
+                    break;
+                case '--':
+                    // remove a stone
                     let b = new Board(board.size);
                     for (let s of board.stones()) {
                         var _stone$coords4 = stone.coords(s);
@@ -2284,10 +2367,11 @@ var testbench;
                         let sy = _stone$coords4[1];
 
                         let c = stone.color(s);
-                        if (sx != x || sy != y) b.play(stone(sx, sy, c));else if (!event.shiftKey) b.play(stone(x, y, -c));
+                        if (sx != x || sy != y) b.play(stone(sx, sy, c));
                     }
-                    board = b.fork();
-                }
+                    board = b.fork(); // drop history
+                    break;
+            }
             renderBoard();
         });
         let wrapper = document.querySelector('.tsumego');
@@ -2296,13 +2380,31 @@ var testbench;
         let editor = document.querySelector('.tsumego-sgf');
         let sgf = board.toStringSGF('\n  ').replace(/\)$/, (rzone.length > 0 ? '\n  SL[' + rzone.map(stone.toString).join('][') + ']' : '') + (stone.hascoords(aim) ? '\n  MA[' + stone.toString(aim) + ']' : '') + ')');
         editor.textContent = sgf;
-        document.querySelector('.tsumego-comment').textContent = comment;
+        setComment(comment);
         if (lspath) testbench.ls.set(lspath, sgf);
+    }
+    function setComment(comment) {
+        document.querySelector('#comment').textContent = comment;
     }
     function parse(si, size) {
         let x = si.charCodeAt(0) - 65;
         let y = size - +/\d+/.exec(si)[0];
         return stone(x, y, 0);
+    }
+    function solveAndRender(color) {
+        let nkt = arguments.length <= 1 || arguments[1] === undefined ? 0 : arguments[1];
+
+        setComment('Solving... Unfortunately, there is no way to terminate the solver.');
+        setTimeout(function () {
+            let move = solve(board, color, nkt, true);
+            if (!stone.hascoords(move) || move * color < 0) {
+                setComment(c2s(color) + ' passes');
+            } else {
+                board.play(move);
+                console.log(board + '');
+                renderBoard();
+            }
+        });
     }
     window['$'] = function (data) {
         let cmd = data.toString().trim().split(' ');
@@ -2321,14 +2423,7 @@ var testbench;
                         renderBoard();
                     }
                 } else {
-                    let move = solve(board, c, !xy ? 0 : +xy, true);
-                    if (!stone.hascoords(move) || move * c < 0) {
-                        console.log(col, 'passes');
-                    } else {
-                        board.play(move);
-                        console.log(board + '');
-                        renderBoard();
-                    }
+                    solveAndRender(c, !xy ? 0 : +xy);
                 }
                 break;
             case 'undo':
