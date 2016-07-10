@@ -1,0 +1,56 @@
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+.workspace {
+    padding-left: 10pt;
+}
+
+.tsumego {
+    cursor: pointer;
+    width: 200pt;
+}
+
+.tsumego, .tsumego-preview {
+    display: inline-block;
+}
+
+.tsumego-sgf {
+    width: 200pt;
+    height: 200pt;
+    font-family: "Lucida Console";
+    display: inline-block;
+    border: none;
+    vertical-align: top;
+}
+
+.tsumego-options {
+    display: inline-block;
+    border: 1px solid black;
+    margin: 5pt;
+    padding: 3pt;
+}
+
+    .tsumego-options span {
+        display: block;
+    }
+
+
+#tutorial-hint {
+    position: fixed;
+    right: 0;
+    top: 0;
+}
+
+#semantic-ui-ref {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+}
+
+.directory .list {
+    max-height: 20em;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
