@@ -1,5 +1,6 @@
 ﻿<!doctype html>
 <html>
+
 <head>
     <title>tsumego.js</title>
 
@@ -59,14 +60,18 @@
             $('.menu .item').tab({ history: false });
 
             $('.ui.buttons.toggle > .ui.button').click(function (event) {
-                $(this).addClass('active').siblings().removeClass('active');
+                if ($(this).hasClass('active'))
+                    $(this).removeClass('active');
+                else
+                    $(this).addClass('active').siblings().removeClass('active');
             });
         });
     </script>
 </head>
+
 <body class="editor">
     <div id="grid" class="ui grid">
-        <div class="ui column" style="height:calc(100% - 2em);width:15em">
+        <div id="directory-container" class="ui column">
             <div class="ui inverted segment" style="height:100%" id="directory">
                 <div class="ui icon inverted transparent input">
                     <input type="text" placeholder="Search...">
@@ -76,7 +81,8 @@
                 <div class="ui inverted vertical menu"></div>
             </div>
         </div>
-        <div class="workspace ui column" style="height:calc(100% - 2em);width:calc(100% - 17.6em);padding:0 2pt">
+
+        <div id="goban-area" class="workspace ui column">
             <div class="ui pointing secondary menu">
                 <a class="active item" data-tab="board">Board</a>
                 <a class="item" data-tab="sgf">SGF</a>
@@ -95,8 +101,9 @@
                 <pre contenteditable="true" id="svg"></pre>
             </div>
         </div>
-        <div id="right-panel" class="ui column" style="background:rgb(224, 225, 226);height:calc(100% - 2em);width:2.6em">
-            <div class="ui small icon vertical buttons" id="dbg-panel">
+
+        <div id="right-panel" class="ui column">
+            <div class="ui big icon vertical buttons" id="dbg-panel">
                 <button class="ui icon button" id="dbg-run" title="Run" style="color:#21BA45">
                     <i class="play icon"></i>
                 </button>
@@ -123,7 +130,7 @@
             </div>
 
             <div id="solver-panel">
-                <div class="ui small icon vertical buttons">
+                <div class="ui big icon vertical buttons">
                     <button class="ui icon button" id="solve-b" title="Finds the best move for black&#10;Shift+Click finds all correct movesk&#10;Ctrl+Click builds a proof tree">
                         <i class="play icon"></i>
                     </button>
@@ -135,15 +142,11 @@
                     <button class="ui icon button" id="undo" title="Undo the last move">
                         <i class="right undo icon"></i>
                     </button>
-
-                    <button class="ui icon button" id="flipc" title="Invert stone colors">
-                        <i class="right adjust icon"></i>
-                    </button>
                 </div>
             </div>
 
             <div id="tool">
-                <div class="ui small icon vertical buttons toggle">
+                <div class="ui big icon vertical buttons toggle">
                     <button data-value="AB" data-key="B" class="ui icon button" title="Add a black stone (B + Click)">
                         <i class="ui circle icon"></i>
                     </button>
@@ -152,8 +155,12 @@
                         <i class="ui thin circle icon"></i>
                     </button>
 
-                    <button data-value="MA" data-key="T" class="ui icon button" title="Select the target to capture or save (T + Click)">
+                    <button data-value="XX" data-key="X" class="ui icon button" title="Remove a stone (X + Click)">
                         <i class="ui delete icon"></i>
+                    </button>
+
+                    <button data-value="MA" data-key="T" class="ui icon button" title="Select the target to capture or save (T + Click)">
+                        <i class="ui selected radio icon"></i>
                     </button>
 
                     <button data-value="SQ" data-key="S" class="ui icon button" title="Adds a stub to the outer wall (S + Click)">
@@ -162,14 +169,22 @@
                 </div>
             </div>
 
+            <div id="solver-panel">
+                <div class="ui big icon vertical buttons">
+                    <button class="ui icon button" id="flipc" title="Invert stone colors">
+                        <i class="right adjust icon"></i>
+                    </button>
+                </div>
+            </div>
+
             <div id="km">
-                <div class="ui small vertical buttons toggle">
+                <div class="ui big vertical buttons toggle">
                     <button data-value="-1" class="ui icon button" title="W is the ko master">
                         <i class="ui thin circle icon"></i>
                     </button>
 
-                    <button data-value="0" class="ui icon button" title="Neither W nor B has ko treats">
-                        <i class="ui adjust icon"></i>
+                    <button data-value="0" class="ui icon button" title="Neither side has ko treats">
+                        <i class="ui help circle outline icon"></i>
                     </button>
 
                     <button data-value="+1" class="ui icon button" title="B is the ko master">
@@ -185,4 +200,5 @@
         </div>
     </div>
 </body>
+
 </html>

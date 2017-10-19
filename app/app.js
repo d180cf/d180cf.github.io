@@ -513,6 +513,7 @@ var testbench;
             _classCallCheck(this, VM);
 
             this.sgfchanged = new testbench.Event();
+            this.resized = new testbench.Event();
             this.dbg = new ((function () {
                 function DbgVM() {
                     _classCallCheck(this, DbgVM);
@@ -579,10 +580,28 @@ var testbench;
                     var tool = $('button[data-key=' + key + ']').attr('data-value');
                     if (tool == testbench.vm.tool) testbench.vm.tool = null;
                 });
+                window.addEventListener('resize', function (event) {
+                    testbench.vm.resized.fire();
+                });
             });
         }
 
         _createClass(VM, [{
+            key: 'width',
+            get: function get() {
+                return window.innerWidth;
+            }
+        }, {
+            key: 'height',
+            get: function get() {
+                return window.innerHeight;
+            }
+        }, {
+            key: 'isVertical',
+            set: function set(value) {
+                if (value) $('#grid').addClass('vertical');else $('#grid').removeClass('vertical');
+            }
+        }, {
             key: 'mode',
             set: function set(value) {
                 document.body.className = value;
@@ -1271,7 +1290,14 @@ var testbench;
         var rect = getSelectedRect();
         return rect && rect.xmin <= x && x <= rect.xmax && rect.ymin <= y && y <= rect.ymax;
     }
+    function updateVerticalLayout() {
+        var ratio = testbench.vm.width / testbench.vm.height;
+        if (ratio < 0.95) testbench.vm.isVertical = true;
+        if (ratio > 1.05) testbench.vm.isVertical = false;
+    }
+    testbench.vm.resized.add(updateVerticalLayout);
     window.addEventListener('load', function () {
+        updateVerticalLayout();
         if (testbench.qargs.km) {
             testbench.vm.kmVisible = true;
             testbench.vm.km = stone.label.color(testbench.qargs.km);
@@ -1320,7 +1346,7 @@ var testbench;
                 directory.add(path);
             }send('GET', '/problems/manifest.json').then(function (data) {
                 var manifest = JSON.parse(data);
-                console.log('manifest time ' + manifest.time);
+                console.log('manifest time:', new Date(manifest.time));
                 var _iteratorNormalCompletion13 = true;
                 var _didIteratorError13 = false;
                 var _iteratorError13 = undefined;
@@ -2049,12 +2075,12 @@ var testbench;
                     if (!solvingFor) aim = stone.make(x, y, 0);
                 } else if (testbench.vm.tool == 'SQ') {
                     stubs.xor(stone.make(x, y, 0));
-                } else if (/AB|AW/.test(testbench.vm.tool) || solvingFor) {
+                } else if (/AB|AW/.test(testbench.vm.tool) || solvingFor || testbench.vm.tool == 'XX') {
                     (function () {
                         if (c && !solvingFor) removeStone(x, y);
                         var color = testbench.vm.tool == 'AB' ? +1 : testbench.vm.tool == 'AW' ? -1 : -solvingFor;
                         board.play(stone.make(x, y, color));
-                        if (color == -solvingFor && testbench.qargs.autorespond) {
+                        if (color && color == -solvingFor && testbench.qargs.autorespond) {
                             if (testbench.qargs.check) {
                                 testbench.vm.note = 'Checking if ' + stone.label.string(-color) + ' needs to respond...';
                                 setTimeout(function () {
