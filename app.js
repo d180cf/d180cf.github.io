@@ -2134,12 +2134,26 @@ var testbench;
         var _calls = undefined;
         var _nodes = undefined;
         var _time = undefined;
+        var prev = '';
+        // it gives an idea what the solver is doing
+        var getSequenceInfo = function getSequenceInfo() {
+            var s = board.moves.map(stone.toString).join(';');
+            var i = 0;
+            while (i < 40 && i < prev.length && i < s.length && s[i] == prev[i]) i++;
+            prev = s;
+            var r = s.slice(0, i);
+            if (i < s.length) {
+                if (r != '') r += '... ';
+                r += '(' + board.moves.length + ' moves)';
+            }
+            return r;
+        };
         var started = Date.now();
         var elapsed = function elapsed() {
             return (Date.now() - started) / 1000 | 0;
         };
         var comment = function comment() {
-            return elapsed() + ' s' + '; calls = ' + ((tsumego.stat.calls - _calls) / (Date.now() - _time) | 0) + 'K/s' + '; nodes = ' + ((tsumego.stat.nodes - _nodes) / (Date.now() - _time) | 0) + 'K/s';
+            return elapsed() + ' s' + '; calls = ' + ((tsumego.stat.calls - _calls) / (Date.now() - _time) | 0) + 'K/s' + '; nodes = ' + ((tsumego.stat.nodes - _nodes) / (Date.now() - _time) | 0) + 'K/s' + '; moves = ' + getSequenceInfo();
         };
         var op = solving = {
             notify: function notify() {
@@ -2154,6 +2168,7 @@ var testbench;
             if (move * color < 0) {
                 var _ret6 = (function () {
                     var note = color * board.get(aim) < 0 ? stone.label.string(color) + ' cannot capture the group' : stone.label.string(color) + ' cannot save the group';
+                    console.log(note);
                     testbench.vm.note = note + ', searching for treats...';
                     return {
                         v: Promise.resolve().then(function () {
