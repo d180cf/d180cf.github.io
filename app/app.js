@@ -1320,6 +1320,7 @@ var testbench;
                 directory.add(path);
             }send('GET', '/problems/manifest.json').then(function (data) {
                 var manifest = JSON.parse(data);
+                console.log('manifest time ' + manifest.time);
                 var _iteratorNormalCompletion13 = true;
                 var _didIteratorError13 = false;
                 var _iteratorError13 = undefined;
