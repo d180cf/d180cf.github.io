@@ -1,5 +1,32 @@
 {
+  "_from": "git+https://github.com/d180cf/problems.git",
+  "_id": "problems@1.0.0",
+  "_inBundle": false,
+  "_integrity": "sha1-flLpKfY78Ix0mR2PTgFM4Siu+UA=",
+  "_location": "/problems",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "git",
+    "raw": "problems@git+https://github.com/d180cf/problems.git",
+    "name": "problems",
+    "escapedName": "problems",
+    "rawSpec": "git+https://github.com/d180cf/problems.git",
+    "saveSpec": "git+https://github.com/d180cf/problems.git",
+    "fetchSpec": "https://github.com/d180cf/problems.git",
+    "gitCommittish": "master"
+  },
+  "_requiredBy": [
+    "#DEV:/"
+  ],
+  "_resolved": "git+https://github.com/d180cf/problems.git#fff3a2d105290d8c5d60e5533bd8a9f766712bf1",
+  "_spec": "problems@git+https://github.com/d180cf/problems.git",
+  "_where": "/home/travis/build/d180cf/tsumego.js",
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Annotated SGF files with tsumego problems",
   "devDependencies": {
     "glob": "5.0.15"
-  }
+  },
+  "name": "problems",
+  "version": "1.0.0"
 }
