@@ -136,14 +136,14 @@ var testbench;
     };
 
     testbench.Subscription = Subscription;
-    var keyboard;
+    var keyboard = undefined;
     (function (keyboard) {
+        var Key = undefined;
         (function (Key) {
             Key[Key["Esc"] = 27] = "Esc";
             Key[Key["F10"] = 121] = "F10";
             Key[Key["F11"] = 122] = "F11";
-        })(keyboard.Key || (keyboard.Key = {}));
-        var Key = keyboard.Key;
+        })(Key = keyboard.Key || (keyboard.Key = {}));
         /**
          *  hook(122, event => {
          *      // ...
@@ -193,7 +193,9 @@ var testbench;
                 var m = g.firstChild;
                 g.removeChild(m);
                 defs.appendChild(m);
-            } catch (_) {}
+            } catch (_) {
+                // the svg element cannot be referred to with <use>
+            }
         }
 
         _createClass(SVGGobanItemsCollection, [{
@@ -241,6 +243,7 @@ var testbench;
                     this.svg.removeChild(ref);
                     this.update(x, y);
                 }
+                this.elements = {};
             }
         }]);
 
@@ -248,7 +251,7 @@ var testbench;
     })();
 
     testbench.SVGGobanItemsCollection = SVGGobanItemsCollection;
-    var SVGGobanElement;
+    var SVGGobanElement = undefined;
     (function (SVGGobanElement) {
         function create(n) {
             var div = document.createElement('div');
@@ -375,6 +378,7 @@ var testbench;
         }
 
         if (testbench.qargs.autorespond === undefined) testbench.qargs.autorespond = true;
+        if (testbench.qargs.ard === undefined) testbench.qargs.ard = 100;
         if (testbench.qargs.check === undefined) testbench.qargs.check = true;
         console.log('qargs:', testbench.qargs);
     } catch (err) {
@@ -572,6 +576,7 @@ var testbench;
         }, {
             key: 'note',
             set: function set(text) {
+                console.log(text);
                 $('#comment').text(text);
             }
         }, {
@@ -681,7 +686,9 @@ var testbench;
             key: 'toggle',
             value: function toggle(item, filter) {
                 var path = $(item).text();
-                var visible = path.indexOf(filter) >= 0 || path == location.hash.slice(1);
+                var visible = path.indexOf(filter) >= 0
+                // it would be odd if the current tsumego was hidden
+                 || path == location.hash.slice(1);
                 $(item).toggle(visible);
             }
         }, {
@@ -1783,7 +1790,7 @@ var testbench;
     // it creates the SVG board, sets up
     // mouse handlers and so on
     function renderBoard() {
-        console.warn('Creating a SVG board...');
+        console.log('Creating a SVG board...');
         ui = testbench.SVGGobanElement.create(board.size);
         updateBoard();
         var _iteratorNormalCompletion20 = true;
@@ -1988,16 +1995,16 @@ var testbench;
                         board.play(stone.make(x, y, color));
                         updateBoard();
                         if (testbench.qargs.autorespond) {
-                            if (testbench.qargs.check) {
-                                testbench.vm.note = 'Checking if ' + stone.label.string(-color) + ' needs to respond...';
-                                setTimeout(function () {
+                            setTimeout(function () {
+                                if (testbench.qargs.check) {
+                                    testbench.vm.note = 'Checking if ' + stone.label.string(-color) + ' needs to respond...';
                                     solve(null, board, color, testbench.vm.km).then(function (move) {
                                         if (color * move < 0) testbench.vm.note = stone.label.string(-color) + ' does not need to respond';else solveAndRender(-color, testbench.vm.km);
                                     });
-                                });
-                            } else {
-                                solveAndRender(-color, testbench.vm.km);
-                            }
+                                } else {
+                                    solveAndRender(-color, testbench.vm.km);
+                                }
+                            }, testbench.qargs.ard);
                         }
                     })();
                 }
