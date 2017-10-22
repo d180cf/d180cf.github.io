@@ -1010,7 +1010,7 @@ var testbench;
     }
     testbench.dbgsolve = dbgsolve;
 })(testbench || (testbench = {}));
-/// <reference path="../tsumego.d.ts" />
+/// <reference path="../bin/tsumego.d.ts" />
 /// <reference path="kb.ts" />
 /// <reference path="xhr.ts" />
 /// <reference path="../node_modules/svg-goban/goban.ts" />
