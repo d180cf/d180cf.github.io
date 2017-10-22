@@ -1280,6 +1280,8 @@ var testbench;
         if (testbench.qargs.km) {
             testbench.vm.kmVisible = true;
             testbench.vm.km = stone.label.color(testbench.qargs.km);
+        } else {
+            testbench.vm.kmVisible = false;
         }
         Promise.resolve().then(function () {
             var directory = new testbench.Directory('#directory');
@@ -1572,6 +1574,13 @@ var testbench;
                     board = b.fork();
                     renderBoard();
                 });
+                document.querySelector('#erase').addEventListener('click', function (e) {
+                    board = new Board(board.size);
+                    aim = null;
+                    stubs.empty();
+                    selection = null;
+                    renderBoard();
+                });
                 document.querySelector('#undo').addEventListener('click', function () {
                     var move = board.undo();
                     if (!move) testbench.vm.note = 'Nothing to undo';
@@ -1852,6 +1861,13 @@ var testbench;
             throw err;
         }
     });
+    // display the SVG only if the user can see it
+    $(function () {
+        $('#tab-svg-header').click(function () {
+            var wrapper = document.querySelector('.tsumego');
+            testbench.vm.svg = wrapper.innerHTML;
+        });
+    });
     // this is an extremely slow method:
     // it creates the SVG board, sets up
     // mouse handlers and so on
@@ -2027,10 +2043,15 @@ var testbench;
 
                 var c = board.get(x, y);
                 if (testbench.vm.tool == 'MA') {
-                    if (!solvingFor) {
-                        aim = stone.make(x, y, 0);
+                    if (testbench.vm.mode == 'editor') {
                         ui.MA.clear();
-                        ui.MA.add(x, y);
+                        var newaim = stone.make(x, y, 0);
+                        if (newaim == aim) {
+                            aim = 0; // allow to clear the marker
+                        } else {
+                                aim = newaim;
+                                ui.MA.add(x, y);
+                            }
                         updateProblemSGF();
                     }
                 } else if (testbench.vm.tool == 'SQ') {
@@ -2085,8 +2106,14 @@ var testbench;
         for (var x = 0; x < board.size; x++) {
             for (var y = 0; y < board.size; y++) {
                 var color = board.get(x, y);
-                if (color > 0) ui.AB.add(x, y);
-                if (color < 0) ui.AW.add(x, y);
+                if (color > 0) {
+                    ui.AW.remove(x, y);
+                    ui.AB.add(x, y);
+                }
+                if (color < 0) {
+                    ui.AB.remove(x, y);
+                    ui.AW.add(x, y);
+                }
                 if (!color) {
                     ui.AB.remove(x, y);
                     ui.AW.remove(x, y);
@@ -2106,12 +2133,10 @@ var testbench;
         updateProblemSGF();
     }
     function updateProblemSGF() {
-        var wrapper = document.querySelector('.tsumego');
         var sgf = getProblemSGF();
         try {
             SGF.parse(sgf);
             testbench.vm.sgf = sgf;
-            testbench.vm.svg = wrapper.innerHTML;
             if (lspath && testbench.vm.mode == 'editor') testbench.ls.set(lspath, sgf);
         } catch (err) {
             testbench.vm.note = err;
