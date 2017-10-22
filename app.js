@@ -176,11 +176,9 @@ function send(method, url, data) {
 }
 var testbench;
 (function (testbench) {
-    var stone = tsumego.stone;
-
-    var Marks = (function () {
-        function Marks(svg, update, def) {
-            _classCallCheck(this, Marks);
+    var SVGGobanItemsCollection = (function () {
+        function SVGGobanItemsCollection(svg, update, def) {
+            _classCallCheck(this, SVGGobanItemsCollection);
 
             this.svg = svg;
             this.update = update;
@@ -197,7 +195,7 @@ var testbench;
             } catch (_) {}
         }
 
-        _createClass(Marks, [{
+        _createClass(SVGGobanItemsCollection, [{
             key: 'nodes',
             value: regeneratorRuntime.mark(function nodes() {
                 var refs, i, type;
@@ -209,7 +207,7 @@ var testbench;
                                 break;
                             }
 
-                            refs = $(this.svg).find('use').toArray();
+                            refs = this.svg.querySelectorAll('use');
                             i = 0;
 
                         case 3:
@@ -237,7 +235,7 @@ var testbench;
 
                         case 12:
                             type = /^<(\w+) /.exec(this.def)[1];
-                            refs = $(this.svg).find(type).toArray();
+                            refs = this.svg.querySelectorAll(type);
                             return context$3$0.delegateYield(refs, 't0', 15);
 
                         case 15:
@@ -335,9 +333,10 @@ var testbench;
             }
         }]);
 
-        return Marks;
+        return SVGGobanItemsCollection;
     })();
 
+    testbench.SVGGobanItemsCollection = SVGGobanItemsCollection;
     var SVGGobanElement;
     (function (SVGGobanElement) {
         function create(n) {
@@ -346,14 +345,14 @@ var testbench;
             var svg = div.querySelector('svg');
             div.removeChild(svg);
             Object.assign(svg, {
-                AB: new Marks(svg, update, '<circle id="AB" r="0.475" fill="black" stroke="black" stroke-width="0.05"></circle>'),
-                AW: new Marks(svg, update, '<circle id="AW" r="0.475" fill="white" stroke="black" stroke-width="0.05"></circle>'),
-                CR: new Marks(svg, update, '<circle id="CR" r="0.5" stroke="none" transform="scale(0.4)"></circle>'),
-                TR: new Marks(svg, update, '<path id="TR" d="M 0 -0.5 L -0.433 0.25 L 0.433 0.25 Z" stroke="none" transform="scale(0.5)"></path>'),
-                MA: new Marks(svg, update, '<path id="MA" d="M -0.2 -0.2 L 0.2 0.2 M 0.2 -0.2 L -0.2 0.2" stroke-width="0.05"></path>'),
-                SQ: new Marks(svg, update, '<rect id="SQ" x="-0.5" y="-0.5" width="1" height="1" stroke="none" transform="scale(0.4)"></rect>'),
-                SL: new Marks(svg, update, '<rect id="SL" x="-0.5" y="-0.5" width="1" height="1" fill-opacity="0.5" stroke="none"></rect>'),
-                LB: new Marks(svg, update, '<text x="" y="" font-size="0.3" text-anchor="middle" dominant-baseline="middle" stroke-width="0"></text>')
+                AB: new SVGGobanItemsCollection(svg, update, '<circle id="AB" r="0.475" fill="black" stroke="black" stroke-width="0.05"></circle>'),
+                AW: new SVGGobanItemsCollection(svg, update, '<circle id="AW" r="0.475" fill="white" stroke="black" stroke-width="0.05"></circle>'),
+                CR: new SVGGobanItemsCollection(svg, update, '<circle id="CR" r="0.5" stroke="none" transform="scale(0.4)"></circle>'),
+                TR: new SVGGobanItemsCollection(svg, update, '<path id="TR" d="M 0 -0.5 L -0.433 0.25 L 0.433 0.25 Z" stroke="none" transform="scale(0.5)"></path>'),
+                MA: new SVGGobanItemsCollection(svg, update, '<path id="MA" d="M -0.2 -0.2 L 0.2 0.2 M 0.2 -0.2 L -0.2 0.2" stroke-width="0.05"></path>'),
+                SQ: new SVGGobanItemsCollection(svg, update, '<rect id="SQ" x="-0.5" y="-0.5" width="1" height="1" stroke="none" transform="scale(0.4)"></rect>'),
+                SL: new SVGGobanItemsCollection(svg, update, '<rect id="SL" x="-0.5" y="-0.5" width="1" height="1" fill-opacity="0.5" stroke="none"></rect>'),
+                LB: new SVGGobanItemsCollection(svg, update, '<text x="" y="" font-size="0.3" text-anchor="middle" dominant-baseline="middle" stroke-width="0"></text>')
             });
             // invoked after a marker has been added or removed
             function update(x, y) {
@@ -374,23 +373,19 @@ var testbench;
             }
             // upper letters: A, B, C, ...
             for (var x = 0; x < n; x++) {
-                var label = stone.cc.toString(stone.make(x, 0, 0), n)[0];
+                var label = String.fromCharCode(0x41 + x);
                 svg.LB.add(x, -0.7, label);
             }
             // left digits: 9, 8, 7, ...
             for (var y = 0; y < n; y++) {
-                var label = stone.cc.toString(stone.make(0, y, 0), n).slice(1);
+                var label = n - y + '';
                 svg.LB.add(-0.7, y, label);
             }
             // lower labels: a, b, c, ...
             for (var x = 0; x < n; x++) {
-                var label = stone.toString(stone.make(x, 0, 0))[1];
+                var label = String.fromCharCode(0x61 + x);
                 svg.LB.add(x, n - 1 + 0.7, label);
-            }
-            // right letters: a, b, c, ...
-            for (var y = 0; y < n; y++) {
-                var label = stone.toString(stone.make(0, y, 0))[2];
-                svg.LB.add(n - 1 + 0.7, y, label);
+                svg.LB.add(n - 1 + 0.7, x, label);
             }
             function getStoneCoords(event) {
                 // Chrome had a bug which made offsetX/offsetY coords wrong
@@ -1107,7 +1102,7 @@ var testbench;
 /// <reference path="../tsumego.d.ts" />
 /// <reference path="kb.ts" />
 /// <reference path="xhr.ts" />
-/// <reference path="goban.ts" />
+/// <reference path="../node_modules/svg-goban/goban.ts" />
 /// <reference path="vm.ts" />
 /// <reference path="directory.ts" />
 /// <reference path="debugger.ts" />
