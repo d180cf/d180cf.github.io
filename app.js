@@ -1010,7 +1010,7 @@ var testbench;
     }
     testbench.dbgsolve = dbgsolve;
 })(testbench || (testbench = {}));
-/// <reference path="../bin/tsumego.d.ts" />
+/// <reference path="../node_modules/tsumego.js/bin/tsumego.d.ts" />
 /// <reference path="kb.ts" />
 /// <reference path="xhr.ts" />
 /// <reference path="../node_modules/svg-goban/goban.ts" />
@@ -2172,4 +2172,4 @@ var testbench;
         });
     }
 })(testbench || (testbench = {}));
-//# sourceMappingURL=app.js.map
+//# sourceMappingURL=.bin/app.js.map
