@@ -1202,7 +1202,7 @@ var testbench;
             testbench.vm.kmVisible = false;
         }
         // display the build info if available
-        send('GET', '.build').then(function (data) {
+        send('GET', 'BUILD').then(function (data) {
             testbench.vm.note = data;
         });
         Promise.resolve().then(function () {
