@@ -1201,6 +1201,10 @@ var testbench;
         } else {
             testbench.vm.kmVisible = false;
         }
+        // display the build info if available
+        send('GET', '.build').then(function (data) {
+            testbench.vm.note = data;
+        });
         Promise.resolve().then(function () {
             var directory = new testbench.Directory('#directory');
             window.addEventListener('hashchange', function () {
