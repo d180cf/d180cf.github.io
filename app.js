@@ -1240,73 +1240,79 @@ var testbench;
             testbench.ls.removed.add(function (path) {
                 directory.remove(path);
             });
-            var lsdata = testbench.ls.data;
-            for (var path in lsdata) {
-                directory.add(path);
-            }send('GET', '/problems/manifest.json').then(function (data) {
-                var manifest = JSON.parse(data);
-                console.log('manifest time:', new Date(manifest.time));
-                var _iteratorNormalCompletion10 = true;
-                var _didIteratorError10 = false;
-                var _iteratorError10 = undefined;
+            // fetching problems is a very slow operation:
+            // do that only when the tab becomes visible
+            $('#tab-dir-header').one('click', function () {
+                console.log('Loading SGF files from LS...');
+                var lsdata = testbench.ls.data;
+                for (var path in lsdata) {
+                    directory.add(path);
+                }console.log('Loading problems from manifest.json...');
+                send('GET', '/problems/manifest.json').then(function (data) {
+                    var manifest = JSON.parse(data);
+                    console.log('manifest time:', new Date(manifest.time));
+                    var _iteratorNormalCompletion10 = true;
+                    var _didIteratorError10 = false;
+                    var _iteratorError10 = undefined;
 
-                try {
-                    for (var _iterator10 = manifest.dirs[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-                        var dir = _step10.value;
-                        var _iteratorNormalCompletion11 = true;
-                        var _didIteratorError11 = false;
-                        var _iteratorError11 = undefined;
-
-                        try {
-                            var _loop = function () {
-                                var path = _step11.value;
-
-                                send('GET', '/problems/' + path).then(function (sgf) {
-                                    var root = tsumego.SGF.parse(sgf);
-                                    if (!root) throw SyntaxError('Invalid SGF from ' + path);
-                                    var name = path.replace('.sgf', '');
-                                    // the problem is considered to be hard if it
-                                    // doesn't appear in unit tests
-                                    directory.item(name).hard = !/\bPL\[/.test(sgf);
-                                })['catch'](function (err) {
-                                    console.log(err.stack);
-                                });
-                            };
-
-                            for (var _iterator11 = dir.problems[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-                                _loop();
-                            }
-                        } catch (err) {
-                            _didIteratorError11 = true;
-                            _iteratorError11 = err;
-                        } finally {
-                            try {
-                                if (!_iteratorNormalCompletion11 && _iterator11['return']) {
-                                    _iterator11['return']();
-                                }
-                            } finally {
-                                if (_didIteratorError11) {
-                                    throw _iteratorError11;
-                                }
-                            }
-                        }
-                    }
-                } catch (err) {
-                    _didIteratorError10 = true;
-                    _iteratorError10 = err;
-                } finally {
                     try {
-                        if (!_iteratorNormalCompletion10 && _iterator10['return']) {
-                            _iterator10['return']();
+                        for (var _iterator10 = manifest.dirs[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+                            var dir = _step10.value;
+                            var _iteratorNormalCompletion11 = true;
+                            var _didIteratorError11 = false;
+                            var _iteratorError11 = undefined;
+
+                            try {
+                                var _loop = function () {
+                                    var path = _step11.value;
+
+                                    send('GET', '/problems/' + path).then(function (sgf) {
+                                        var root = tsumego.SGF.parse(sgf);
+                                        if (!root) throw SyntaxError('Invalid SGF from ' + path);
+                                        var name = path.replace('.sgf', '');
+                                        // the problem is considered to be hard if it
+                                        // doesn't appear in unit tests
+                                        directory.item(name).hard = !/\bPL\[/.test(sgf);
+                                    })['catch'](function (err) {
+                                        console.log(err.stack);
+                                    });
+                                };
+
+                                for (var _iterator11 = dir.problems[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+                                    _loop();
+                                }
+                            } catch (err) {
+                                _didIteratorError11 = true;
+                                _iteratorError11 = err;
+                            } finally {
+                                try {
+                                    if (!_iteratorNormalCompletion11 && _iterator11['return']) {
+                                        _iterator11['return']();
+                                    }
+                                } finally {
+                                    if (_didIteratorError11) {
+                                        throw _iteratorError11;
+                                    }
+                                }
+                            }
                         }
+                    } catch (err) {
+                        _didIteratorError10 = true;
+                        _iteratorError10 = err;
                     } finally {
-                        if (_didIteratorError10) {
-                            throw _iteratorError10;
+                        try {
+                            if (!_iteratorNormalCompletion10 && _iterator10['return']) {
+                                _iterator10['return']();
+                            }
+                        } finally {
+                            if (_didIteratorError10) {
+                                throw _iteratorError10;
+                            }
                         }
                     }
-                }
-            })['catch'](function (err) {
-                console.log(err.stack);
+                })['catch'](function (err) {
+                    console.log(err.stack);
+                });
             });
             if (!testbench.qargs.debug) {
                 directory.deleted.add(function (path) {

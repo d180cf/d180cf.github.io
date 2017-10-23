@@ -71,22 +71,12 @@
 
 <body class="editor">
     <div id="grid" class="ui grid">
-        <div id="directory-container" class="ui column">
-            <div class="ui inverted segment" style="height:100%" id="directory">
-                <div class="ui icon inverted transparent input">
-                    <input type="text" placeholder="Search...">
-                    <i class="circular search link icon"></i>
-                </div>
-
-                <div class="ui inverted vertical menu"></div>
-            </div>
-        </div>
-
         <div id="goban-area" class="workspace ui column">
             <div class="ui pointing secondary menu">
                 <a class="active item" data-tab="board">Board</a>
                 <a class="item" data-tab="sgf" id="tab-sgf-header">SGF</a>
                 <a class="item" data-tab="svg" id="tab-svg-header">SVG</a>
+                <a class="item" data-tab="dir" id="tab-dir-header">Directory</a>
             </div>
 
             <div class="ui active tab" data-tab="board">
@@ -99,6 +89,19 @@
 
             <div class="ui tab" data-tab="svg">
                 <pre contenteditable="true" id="svg"></pre>
+            </div>
+
+            <div class="ui tab" data-tab="dir">
+                <div id="directory-container">
+                    <div class="ui segment" id="directory">
+                        <div class="ui icon transparent input">
+                            <input type="text" placeholder="Search...">
+                            <i class="circular search link icon"></i>
+                        </div>
+        
+                        <div class="ui vertical menu"></div>
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -53,15 +53,10 @@ body.proof-tree #footer {
 
     .tsumego svg {
         user-select: none;
-        width: calc(100vw - 19em);
-        height: calc(100vw - 19em);
-        max-height: calc(100vh - 6em);
-        max-width: calc(100vh - 6em);
-    }
-
-    .vertical .tsumego svg {
         width: calc(100vw - 6em);
         height: calc(100vw - 6em);
+        max-height: calc(100vh - 6em);
+        max-width: calc(100vh - 6em);
     }
 
 .workspace pre {
@@ -81,23 +76,10 @@ body.proof-tree #footer {
         outline: none;
     }
 
-#directory-container {
-    height: calc(100% - 2em);
-    width: 15em;
-}
-
-.vertical #directory-container {
-    display: none;
-}
-
 #goban-area {
     height: calc(100% - 2em);
-    width: calc(100% - 18.6em);
-    padding: 0 2pt;
-}
-
-.vertical #goban-area {
     width: calc(100% - 3.6em);
+    padding: 0 2pt;
 }
 
 #right-panel {
@@ -124,6 +106,7 @@ body.proof-tree #footer {
 
 #directory {
     padding: 0;
+    height: 100%;
 }
 
     #directory > .input {
@@ -132,7 +115,8 @@ body.proof-tree #footer {
     }
 
     #directory > .menu {
-        height: calc(100vh - 5em);
+        height: calc(100vh - 10em);
+        width: 100%;
         margin: 0;
         overflow-y: auto;
         overflow-x: hidden;
