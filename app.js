@@ -462,6 +462,14 @@ var testbench;
                     var tool = $('button[data-key=' + key + ']').attr('data-value');
                     if (tool == testbench.vm.tool) testbench.vm.tool = null;
                 });
+                $('#download').click(function () {
+                    var name = location.hash.slice(1).replace(/[^\w]/g, '-') || 'file';
+                    var blob = new Blob([testbench.vm.sgf], { type: 'application/x-go-sgf' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = name + '.sgf';
+                    a.click();
+                });
                 window.addEventListener('resize', function (event) {
                     testbench.vm.resized.fire();
                 });
