@@ -335,6 +335,272 @@ var testbench;
 })(testbench || (testbench = {}));
 var testbench;
 (function (testbench) {
+    // Detects balck and white stones on the image.
+    // Returns SGF with SZ, AB and AW properties.
+    //
+    // shape(rgba) = [w, h, 4] of 0..255
+    function parseimg(rgba, _ref) {
+        var _ref2 = _slicedToArray(_ref, 2);
+
+        var w = _ref2[0];
+        var h = _ref2[1];
+
+        console.log('grayscaling...');
+        var gs = new Float32Array(w * h);
+        grayscale(gs, rgba, [w, h]);
+        normalize(gs, [w, h]);
+        console.log('detecting intersections...');
+
+        var _intersections = intersections(gs, [w, h]);
+
+        var _intersections2 = _slicedToArray(_intersections, 3);
+
+        var x0 = _intersections2[0];
+        var y0 = _intersections2[1];
+        var ds = _intersections2[2];
+
+        console.log('top left intersection: x = ' + x0 + ', y = ' + y0);
+        console.log('circle diameter: ' + ds);
+        console.log('detecting circles...');
+        var b_max = 0.4;
+        var w_min = 0.7;
+        var b_stones = [];
+        var w_stones = [];
+        var xn_max = 0;
+        var yn_max = 0;
+        var xn_min = Infinity;
+        var yn_min = Infinity;
+        console.log('b_max = ' + b_max);
+        console.log('w_min = ' + w_min);
+        for (var y = y0 % ds; y < h; y += ds) {
+            var s1 = [],
+                s2 = [];
+            for (var x = x0 % ds; x < w; x += ds) {
+                var a = average(gs, [w, h], [x, y], ds / 2 | 0);
+                var q = iscount(gs, [w, h], [x, y], 2);
+                s1.push(a.toFixed(2).slice(2));
+                s2.push(q);
+                var xn = (x - x0 % ds) / ds | 0;
+                var yn = (y - y0 % ds) / ds | 0;
+                if (a < b_max) b_stones.push([xn, yn]);
+                if (a > w_min) w_stones.push([xn, yn]);
+                if (a < b_max || a > w_min || q > 2) {
+                    xn_max = Math.max(xn_max, xn);
+                    yn_max = Math.max(yn_max, yn);
+                    xn_min = Math.min(xn_min, xn);
+                    yn_min = Math.min(yn_min, yn);
+                }
+            }
+            console.log(s1.join(' ') + '    ' + s2.join(' '));
+        }
+        console.log('x range', [xn_min, xn_max]);
+        console.log('y range', [yn_min, yn_max]);
+        var sz = Math.max(xn_max - xn_min, yn_max - yn_min) + 1;
+        var ns = function ns(i) {
+            return String.fromCharCode(0x61 + i);
+        };
+        var nss = function nss(list) {
+            return list.map(function (q) {
+                return '[' + q.map(ns).join('') + ']';
+            }).join('');
+        };
+        var sgf = '(;FF[4]' + 'SZ[' + sz + ']' + (b_stones.length > 0 ? 'AB' + nss(b_stones) : '') + (w_stones.length > 0 ? 'AW' + nss(w_stones) : '') + ')';
+        console.log('writing data back to image...');
+        printimg(gs, [w, h]);
+        return sgf;
+    }
+    testbench.parseimg = parseimg;
+    function printimg(gs, _ref3) {
+        var _ref32 = _slicedToArray(_ref3, 2);
+
+        var w = _ref32[0];
+        var h = _ref32[1];
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx2d = canvas.getContext('2d');
+        var idata = ctx2d.getImageData(0, 0, w, h);
+        colorize(idata.data, gs, [w, h]);
+        ctx2d.putImageData(idata, 0, 0);
+        var url = canvas.toDataURL();
+        console.log('%c       ', 'font-size: ' + h + 'px; background: url(' + url + ') no-repeat;');
+    }
+    function minmax(data, _ref4) {
+        var _ref42 = _slicedToArray(_ref4, 2);
+
+        var w = _ref42[0];
+        var h = _ref42[1];
+
+        var min = 1 / 0,
+            max = -1 / 0;
+        for (var i = 0; i < w * h; i++) {
+            max = Math.max(max, data[i]);
+            min = Math.min(min, data[i]);
+        }
+        return [min, max];
+    }
+    function apply(data, _ref5, fn) {
+        var _ref52 = _slicedToArray(_ref5, 2);
+
+        var w = _ref52[0];
+        var h = _ref52[1];
+
+        for (var i = 0, n = w * h; i < n; i++) {
+            data[i] = fn(data[i]);
+        }
+    }
+    function normalize(image, _ref6) {
+        var _ref62 = _slicedToArray(_ref6, 2);
+
+        var w = _ref62[0];
+        var h = _ref62[1];
+
+        var _minmax = minmax(image, [w, h]);
+
+        var _minmax2 = _slicedToArray(_minmax, 2);
+
+        var min = _minmax2[0];
+        var max = _minmax2[1];
+
+        apply(image, [w, h], function (x) {
+            return (x - min) / (max - min);
+        });
+    }
+    // The alpha channel is ignored.
+    //
+    // shape(result) = [w, h] of [0..1]
+    // shape(rgba) = [w, h, 4] of [0..255]
+    function grayscale(result, rgba, _ref7) {
+        var _ref72 = _slicedToArray(_ref7, 2);
+
+        var w = _ref72[0];
+        var h = _ref72[1];
+
+        for (var i = 0, n = w * h * 4; i < n; i += 4) {
+            var r = rgba[i + 0];
+            var g = rgba[i + 1];
+            var b = rgba[i + 2];
+            var a = rgba[i + 3];
+            result[i >> 2] = (r + g + b) / 3 / 255;
+        }
+    }
+    // The alpha channel is set to 255.
+    //
+    // shape(rgba) = [w, h, 4] of [0..255]
+    // shape(input) = [w, h] of [0..1]
+    function colorize(rgba, input, _ref8) {
+        var _ref82 = _slicedToArray(_ref8, 2);
+
+        var w = _ref82[0];
+        var h = _ref82[1];
+
+        for (var i = 0, n = w * h * 4; i < n; i += 4) {
+            var s = input[i >> 2] * 255 | 0;
+            rgba[i + 0] = s;
+            rgba[i + 1] = s;
+            rgba[i + 2] = s;
+            rgba[i + 3] = 255;
+        }
+    }
+    // Returns:
+    //
+    //  4 = intersection in the middle
+    //  3 = intersection on a side
+    //
+    // shape(image) = [w, h] of [0..1]
+    function iscount(image, _ref9, _ref10, n) {
+        var _ref92 = _slicedToArray(_ref9, 2);
+
+        var w = _ref92[0];
+        var h = _ref92[1];
+
+        var _ref102 = _slicedToArray(_ref10, 2);
+
+        var x = _ref102[0];
+        var y = _ref102[1];
+
+        var q1 = 0,
+            q2 = 0,
+            q3 = 0,
+            q4 = 0;
+        for (var d = 0; d < n; d++) {
+            q1 += image[x - d + y * w];
+            q2 += image[x + d + y * w];
+            q3 += image[x + (y - d) * w];
+            q4 += image[x + (y + d) * w];
+        }
+        return +!q1 + +!q2 + +!q3 + +!q4;
+    }
+    // Detects simple intersections of black color.
+    //
+    // shape(image) = [w, h] of [0..1]
+    // returns [x, y, step]
+    function intersections(image, _ref11) {
+        var n = arguments.length <= 2 || arguments[2] === undefined ? 2 : arguments[2];
+
+        var _ref112 = _slicedToArray(_ref11, 2);
+
+        var w = _ref112[0];
+        var h = _ref112[1];
+        var md = arguments.length <= 3 || arguments[3] === undefined ? 10 : arguments[3];
+
+        var xs = [],
+            ys = [];
+        for (var y = n; y < h - n; y++) {
+            for (var x = n; x < w - n; x++) {
+                var qn = iscount(image, [w, h], [x, y], n);
+                if (qn > 2) {
+                    xs.push(x);
+                    ys.push(y);
+                }
+            }
+        }
+        console.log('x ', xs.sort(function (a, b) {
+            return a - b;
+        }));
+        console.log('y ', ys.sort(function (a, b) {
+            return a - b;
+        }));
+        var diffs = [];
+        for (var i = 1; i < xs.length; i++) {
+            var dx = xs[i] - xs[i - 1];
+            if (dx >= md) diffs.push(dx);
+        }
+        for (var i = 1; i < ys.length; i++) {
+            var dy = ys[i] - ys[i - 1];
+            if (dy >= md) diffs.push(dy);
+        }
+        var step = Math.min.apply(Math, diffs);
+        var xmin = Math.min.apply(Math, xs);
+        var ymin = Math.min.apply(Math, ys);
+        return [xmin, ymin, step];
+    }
+    // Finds the average value within radius r.
+    //
+    // shape(image) = [w, h] of [0..1]
+    function average(image, _ref12, _ref13, r) {
+        var _ref122 = _slicedToArray(_ref12, 2);
+
+        var w = _ref122[0];
+        var h = _ref122[1];
+
+        var _ref132 = _slicedToArray(_ref13, 2);
+
+        var x = _ref132[0];
+        var y = _ref132[1];
+
+        var sum = 0,
+            n = 0;
+        for (var dx = -r; dx <= r; dx++) {
+            for (var dy = -r; dy <= r; dy++) {
+                if (0 <= x + dx && x + dx < w && 0 <= y + dy && y + dy < h) if (dx * dx + dy * dy <= r * r) sum += image[x + dx + (y + dy) * w], n++;
+            }
+        }return sum / n;
+    }
+})(testbench || (testbench = {}));
+var testbench;
+(function (testbench) {
     testbench.qargs = {};
     try {
         var _iteratorNormalCompletion2 = true;
@@ -394,6 +660,7 @@ var testbench;
 
             _classCallCheck(this, VM);
 
+            this.sgfpasted = new testbench.Event();
             this.sgfchanged = new testbench.Event();
             this.resized = new testbench.Event();
             this.dbg = new ((function () {
@@ -473,6 +740,63 @@ var testbench;
                 window.addEventListener('resize', function (event) {
                     testbench.vm.resized.fire();
                 });
+                window.addEventListener('paste', function (event) {
+                    console.log('inspecting clipboard...');
+                    var _iteratorNormalCompletion3 = true;
+                    var _didIteratorError3 = false;
+                    var _iteratorError3 = undefined;
+
+                    try {
+                        var _loop = function () {
+                            var item = _step3.value;
+
+                            console.log(item);
+                            if (!item.type.startsWith('image/')) {
+                                console.log('skipping the item because it\'s not an image');
+                                return 'continue';
+                            }
+                            var blob = item.getAsFile();
+                            var source = URL.createObjectURL(blob);
+                            var image = document.createElement('img');
+                            image.src = source;
+                            image.onload = function () {
+                                var canvas = document.createElement('canvas');
+                                var ctx2d = canvas.getContext('2d');
+                                console.log('got image: ' + image.width + ' x ' + image.height);
+                                canvas.width = image.width;
+                                canvas.height = image.height;
+                                ctx2d.drawImage(image, 0, 0);
+                                console.log('detecting circles...');
+                                var idata = ctx2d.getImageData(0, 0, canvas.width, canvas.height);
+                                var sgf = testbench.parseimg(idata.data, [idata.width, idata.height]);
+                                console.log('got sgf: ' + sgf);
+                                var board = new tsumego.Board(sgf);
+                                console.log('size = ' + board.size);
+                                console.log(board.text);
+                                testbench.vm.sgfpasted.fire(sgf);
+                            };
+                        };
+
+                        for (var _iterator3 = event.clipboardData.items[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                            var _ret = _loop();
+
+                            if (_ret === 'continue') continue;
+                        }
+                    } catch (err) {
+                        _didIteratorError3 = true;
+                        _iteratorError3 = err;
+                    } finally {
+                        try {
+                            if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+                                _iterator3['return']();
+                            }
+                        } finally {
+                            if (_didIteratorError3) {
+                                throw _iteratorError3;
+                            }
+                        }
+                    }
+                });
             });
         }
 
@@ -508,27 +832,27 @@ var testbench;
                 return button && button.getAttribute('data-value');
             },
             set: function set(value) {
-                var _iteratorNormalCompletion3 = true;
-                var _didIteratorError3 = false;
-                var _iteratorError3 = undefined;
+                var _iteratorNormalCompletion4 = true;
+                var _didIteratorError4 = false;
+                var _iteratorError4 = undefined;
 
                 try {
-                    for (var _iterator3 = $('#tool button').toArray()[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                        var button = _step3.value;
+                    for (var _iterator4 = $('#tool button').toArray()[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                        var button = _step4.value;
 
                         if (button.getAttribute('data-value') == value) button.classList.add('active');else button.classList.remove('active');
                     }
                 } catch (err) {
-                    _didIteratorError3 = true;
-                    _iteratorError3 = err;
+                    _didIteratorError4 = true;
+                    _iteratorError4 = err;
                 } finally {
                     try {
-                        if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-                            _iterator3['return']();
+                        if (!_iteratorNormalCompletion4 && _iterator4['return']) {
+                            _iterator4['return']();
                         }
                     } finally {
-                        if (_didIteratorError3) {
-                            throw _iteratorError3;
+                        if (_didIteratorError4) {
+                            throw _iteratorError4;
                         }
                     }
                 }
@@ -542,27 +866,27 @@ var testbench;
                 return b ? +b.getAttribute('data-value') : undefined;
             },
             set: function set(value) {
-                var _iteratorNormalCompletion4 = true;
-                var _didIteratorError4 = false;
-                var _iteratorError4 = undefined;
+                var _iteratorNormalCompletion5 = true;
+                var _didIteratorError5 = false;
+                var _iteratorError5 = undefined;
 
                 try {
-                    for (var _iterator4 = $('#km button').toArray()[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                        var button = _step4.value;
+                    for (var _iterator5 = $('#km button').toArray()[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                        var button = _step5.value;
 
                         if (+button.getAttribute('data-value') == value) button.classList.add('active');else button.classList.remove('active');
                     }
                 } catch (err) {
-                    _didIteratorError4 = true;
-                    _iteratorError4 = err;
+                    _didIteratorError5 = true;
+                    _iteratorError5 = err;
                 } finally {
                     try {
-                        if (!_iteratorNormalCompletion4 && _iterator4['return']) {
-                            _iterator4['return']();
+                        if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+                            _iterator5['return']();
                         }
                     } finally {
-                        if (_didIteratorError4) {
-                            throw _iteratorError4;
+                        if (_didIteratorError5) {
+                            throw _iteratorError5;
                         }
                     }
                 }
@@ -702,29 +1026,29 @@ var testbench;
         }, {
             key: 'find',
             value: function find(path) {
-                var _iteratorNormalCompletion5 = true;
-                var _didIteratorError5 = false;
-                var _iteratorError5 = undefined;
+                var _iteratorNormalCompletion6 = true;
+                var _didIteratorError6 = false;
+                var _iteratorError6 = undefined;
 
                 try {
-                    for (var _iterator5 = this.container.find('a.item').toArray()[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-                        var e = _step5.value;
+                    for (var _iterator6 = this.container.find('a.item').toArray()[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                        var e = _step6.value;
 
                         var a = e;
                         var matches = typeof path === 'string' ? a.hash == '#' + path : path(a.hash.slice(1));
                         if (matches) return a;
                     }
                 } catch (err) {
-                    _didIteratorError5 = true;
-                    _iteratorError5 = err;
+                    _didIteratorError6 = true;
+                    _iteratorError6 = err;
                 } finally {
                     try {
-                        if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-                            _iterator5['return']();
+                        if (!_iteratorNormalCompletion6 && _iterator6['return']) {
+                            _iterator6['return']();
                         }
                     } finally {
-                        if (_didIteratorError5) {
-                            throw _iteratorError5;
+                        if (_didIteratorError6) {
+                            throw _iteratorError6;
                         }
                     }
                 }
@@ -780,27 +1104,27 @@ var testbench;
             set: function set(value) {
                 this.input.val(value);
                 testbench.ss.filter = value;
-                var _iteratorNormalCompletion6 = true;
-                var _didIteratorError6 = false;
-                var _iteratorError6 = undefined;
+                var _iteratorNormalCompletion7 = true;
+                var _didIteratorError7 = false;
+                var _iteratorError7 = undefined;
 
                 try {
-                    for (var _iterator6 = this.container.find('a.item').toArray()[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-                        var e = _step6.value;
+                    for (var _iterator7 = this.container.find('a.item').toArray()[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                        var e = _step7.value;
 
                         this.toggle(e, value);
                     }
                 } catch (err) {
-                    _didIteratorError6 = true;
-                    _iteratorError6 = err;
+                    _didIteratorError7 = true;
+                    _iteratorError7 = err;
                 } finally {
                     try {
-                        if (!_iteratorNormalCompletion6 && _iterator6['return']) {
-                            _iterator6['return']();
+                        if (!_iteratorNormalCompletion7 && _iterator7['return']) {
+                            _iterator7['return']();
                         }
                     } finally {
-                        if (_didIteratorError6) {
-                            throw _iteratorError6;
+                        if (_didIteratorError7) {
+                            throw _iteratorError7;
                         }
                     }
                 }
@@ -823,27 +1147,27 @@ var testbench;
     function dbgsolve(board, color, km, aim, stubs, refresh) {
         var debug = {};
         var target = board.get(aim);
-        var _iteratorNormalCompletion7 = true;
-        var _didIteratorError7 = false;
-        var _iteratorError7 = undefined;
+        var _iteratorNormalCompletion8 = true;
+        var _didIteratorError8 = false;
+        var _iteratorError8 = undefined;
 
         try {
-            for (var _iterator7 = stubs[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-                var s = _step7.value;
+            for (var _iterator8 = stubs[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+                var s = _step8.value;
 
                 if (!board.play(stone.make(stone.x(s), stone.y(s), -target))) throw Error('Invalid stub: ' + stone.toString(s));
             }
         } catch (err) {
-            _didIteratorError7 = true;
-            _iteratorError7 = err;
+            _didIteratorError8 = true;
+            _iteratorError8 = err;
         } finally {
             try {
-                if (!_iteratorNormalCompletion7 && _iterator7['return']) {
-                    _iterator7['return']();
+                if (!_iteratorNormalCompletion8 && _iterator8['return']) {
+                    _iterator8['return']();
                 }
             } finally {
-                if (_didIteratorError7) {
-                    throw _iteratorError7;
+                if (_didIteratorError8) {
+                    throw _iteratorError8;
                 }
             }
         }
@@ -869,27 +1193,27 @@ var testbench;
         var dbgbreak = false;
         var breakpoints = [];
         breakpoints.matches = function () {
-            var _iteratorNormalCompletion8 = true;
-            var _didIteratorError8 = false;
-            var _iteratorError8 = undefined;
+            var _iteratorNormalCompletion9 = true;
+            var _didIteratorError9 = false;
+            var _iteratorError9 = undefined;
 
             try {
-                for (var _iterator8 = breakpoints[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-                    var bp = _step8.value;
+                for (var _iterator9 = breakpoints[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+                    var bp = _step9.value;
 
                     if (bp == '@' + hex(board.hash) || bp == '#' + step) return bp;
                 }
             } catch (err) {
-                _didIteratorError8 = true;
-                _iteratorError8 = err;
+                _didIteratorError9 = true;
+                _iteratorError9 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion8 && _iterator8['return']) {
-                        _iterator8['return']();
+                    if (!_iteratorNormalCompletion9 && _iterator9['return']) {
+                        _iterator9['return']();
                     }
                 } finally {
-                    if (_didIteratorError8) {
-                        throw _iteratorError8;
+                    if (_didIteratorError9) {
+                        throw _iteratorError9;
                     }
                 }
             }
@@ -937,27 +1261,27 @@ var testbench;
                         if (newmoves + '' != moves + '') {
                             moves.length = 0;
                             moves.push.apply(moves, _toConsumableArray(newmoves));
-                            var _iteratorNormalCompletion9 = true;
-                            var _didIteratorError9 = false;
-                            var _iteratorError9 = undefined;
+                            var _iteratorNormalCompletion10 = true;
+                            var _didIteratorError10 = false;
+                            var _iteratorError10 = undefined;
 
                             try {
-                                for (var _iterator9 = items[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-                                    var item = _step9.value;
+                                for (var _iterator10 = items[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+                                    var item = _step10.value;
 
                                     svg.removeChild(item);
                                 }
                             } catch (err) {
-                                _didIteratorError9 = true;
-                                _iteratorError9 = err;
+                                _didIteratorError10 = true;
+                                _iteratorError10 = err;
                             } finally {
                                 try {
-                                    if (!_iteratorNormalCompletion9 && _iterator9['return']) {
-                                        _iterator9['return']();
+                                    if (!_iteratorNormalCompletion10 && _iterator10['return']) {
+                                        _iterator10['return']();
                                     }
                                 } finally {
-                                    if (_didIteratorError9) {
-                                        throw _iteratorError9;
+                                    if (_didIteratorError10) {
+                                        throw _iteratorError10;
                                     }
                                 }
                             }
@@ -1029,6 +1353,7 @@ var testbench;
 /// <reference path="kb.ts" />
 /// <reference path="xhr.ts" />
 /// <reference path="../node_modules/svg-goban/goban.ts" />
+/// <reference path="paste-image.ts" />
 /// <reference path="vm.ts" />
 /// <reference path="directory.ts" />
 /// <reference path="debugger.ts" />
@@ -1200,6 +1525,11 @@ var testbench;
         if (ratio < 0.95) testbench.vm.isVertical = true;
         if (ratio > 1.05) testbench.vm.isVertical = false;
     }
+    testbench.vm.sgfpasted.add(function (sgf) {
+        var path = 'pasted/' + Date.now();
+        testbench.ls.set(path, sgf);
+        location.hash = '#' + path;
+    });
     testbench.vm.resized.add(updateVerticalLayout);
     window.addEventListener('load', function () {
         updateVerticalLayout();
@@ -1263,20 +1593,20 @@ var testbench;
                 send('GET', '/problems/manifest.json').then(function (data) {
                     var manifest = JSON.parse(data);
                     console.log('manifest time:', new Date(manifest.time));
-                    var _iteratorNormalCompletion10 = true;
-                    var _didIteratorError10 = false;
-                    var _iteratorError10 = undefined;
+                    var _iteratorNormalCompletion11 = true;
+                    var _didIteratorError11 = false;
+                    var _iteratorError11 = undefined;
 
                     try {
-                        for (var _iterator10 = manifest.dirs[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-                            var dir = _step10.value;
-                            var _iteratorNormalCompletion11 = true;
-                            var _didIteratorError11 = false;
-                            var _iteratorError11 = undefined;
+                        for (var _iterator11 = manifest.dirs[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+                            var dir = _step11.value;
+                            var _iteratorNormalCompletion12 = true;
+                            var _didIteratorError12 = false;
+                            var _iteratorError12 = undefined;
 
                             try {
-                                var _loop = function () {
-                                    var path = _step11.value;
+                                var _loop2 = function () {
+                                    var path = _step12.value;
 
                                     send('GET', '/problems/' + path).then(function (sgf) {
                                         var root = tsumego.SGF.parse(sgf);
@@ -1290,35 +1620,35 @@ var testbench;
                                     });
                                 };
 
-                                for (var _iterator11 = dir.problems[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-                                    _loop();
+                                for (var _iterator12 = dir.problems[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+                                    _loop2();
                                 }
                             } catch (err) {
-                                _didIteratorError11 = true;
-                                _iteratorError11 = err;
+                                _didIteratorError12 = true;
+                                _iteratorError12 = err;
                             } finally {
                                 try {
-                                    if (!_iteratorNormalCompletion11 && _iterator11['return']) {
-                                        _iterator11['return']();
+                                    if (!_iteratorNormalCompletion12 && _iterator12['return']) {
+                                        _iterator12['return']();
                                     }
                                 } finally {
-                                    if (_didIteratorError11) {
-                                        throw _iteratorError11;
+                                    if (_didIteratorError12) {
+                                        throw _iteratorError12;
                                     }
                                 }
                             }
                         }
                     } catch (err) {
-                        _didIteratorError10 = true;
-                        _iteratorError10 = err;
+                        _didIteratorError11 = true;
+                        _iteratorError11 = err;
                     } finally {
                         try {
-                            if (!_iteratorNormalCompletion10 && _iterator10['return']) {
-                                _iterator10['return']();
+                            if (!_iteratorNormalCompletion11 && _iterator11['return']) {
+                                _iterator11['return']();
                             }
                         } finally {
-                            if (_didIteratorError10) {
-                                throw _iteratorError10;
+                            if (_didIteratorError11) {
+                                throw _iteratorError11;
                             }
                         }
                     }
@@ -1351,13 +1681,13 @@ var testbench;
                         setTimeout(function () {
                             var n = 0;
                             ui.SQ.clear();
-                            var _iteratorNormalCompletion12 = true;
-                            var _didIteratorError12 = false;
-                            var _iteratorError12 = undefined;
+                            var _iteratorNormalCompletion13 = true;
+                            var _didIteratorError13 = false;
+                            var _iteratorError13 = undefined;
 
                             try {
-                                for (var _iterator12 = problem.proofs(color)[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
-                                    var move = _step12.value;
+                                for (var _iterator13 = problem.proofs(color)[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+                                    var move = _step13.value;
 
                                     var _stone$coords3 = stone.coords(move);
 
@@ -1370,16 +1700,16 @@ var testbench;
                                     n++;
                                 }
                             } catch (err) {
-                                _didIteratorError12 = true;
-                                _iteratorError12 = err;
+                                _didIteratorError13 = true;
+                                _iteratorError13 = err;
                             } finally {
                                 try {
-                                    if (!_iteratorNormalCompletion12 && _iterator12['return']) {
-                                        _iterator12['return']();
+                                    if (!_iteratorNormalCompletion13 && _iterator13['return']) {
+                                        _iterator13['return']();
                                     }
                                 } finally {
-                                    if (_didIteratorError12) {
-                                        throw _iteratorError12;
+                                    if (_didIteratorError13) {
+                                        throw _iteratorError13;
                                     }
                                 }
                             }
@@ -1425,13 +1755,13 @@ var testbench;
                                         // a basic ko always captures one stone
                                         if (nres == 2) {
                                             var after = new stone.Set(board.stones(-stone.color(_move)));
-                                            var _iteratorNormalCompletion13 = true;
-                                            var _didIteratorError13 = false;
-                                            var _iteratorError13 = undefined;
+                                            var _iteratorNormalCompletion14 = true;
+                                            var _didIteratorError14 = false;
+                                            var _iteratorError14 = undefined;
 
                                             try {
-                                                for (var _iterator13 = before[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
-                                                    var s = _step13.value;
+                                                for (var _iterator14 = before[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+                                                    var s = _step14.value;
 
                                                     if (!after.has(s)) {
                                                         var x = stone.x(s);
@@ -1440,16 +1770,16 @@ var testbench;
                                                     }
                                                 }
                                             } catch (err) {
-                                                _didIteratorError13 = true;
-                                                _iteratorError13 = err;
+                                                _didIteratorError14 = true;
+                                                _iteratorError14 = err;
                                             } finally {
                                                 try {
-                                                    if (!_iteratorNormalCompletion13 && _iterator13['return']) {
-                                                        _iterator13['return']();
+                                                    if (!_iteratorNormalCompletion14 && _iterator14['return']) {
+                                                        _iterator14['return']();
                                                     }
                                                 } finally {
-                                                    if (_didIteratorError13) {
-                                                        throw _iteratorError13;
+                                                    if (_didIteratorError14) {
+                                                        throw _iteratorError14;
                                                     }
                                                 }
                                             }
@@ -1479,13 +1809,13 @@ var testbench;
                 });
                 document.querySelector('#flipc').addEventListener('click', function (e) {
                     var b = new Board(board.size);
-                    var _iteratorNormalCompletion14 = true;
-                    var _didIteratorError14 = false;
-                    var _iteratorError14 = undefined;
+                    var _iteratorNormalCompletion15 = true;
+                    var _didIteratorError15 = false;
+                    var _iteratorError15 = undefined;
 
                     try {
-                        for (var _iterator14 = board.stones()[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
-                            var s = _step14.value;
+                        for (var _iterator15 = board.stones()[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
+                            var s = _step15.value;
 
                             var x = stone.x(s);
                             var y = stone.y(s);
@@ -1493,16 +1823,16 @@ var testbench;
                             b.play(stone.make(x, y, -c));
                         }
                     } catch (err) {
-                        _didIteratorError14 = true;
-                        _iteratorError14 = err;
+                        _didIteratorError15 = true;
+                        _iteratorError15 = err;
                     } finally {
                         try {
-                            if (!_iteratorNormalCompletion14 && _iterator14['return']) {
-                                _iterator14['return']();
+                            if (!_iteratorNormalCompletion15 && _iterator15['return']) {
+                                _iterator15['return']();
                             }
                         } finally {
-                            if (_didIteratorError14) {
-                                throw _iteratorError14;
+                            if (_didIteratorError15) {
+                                throw _iteratorError15;
                             }
                         }
                     }
@@ -1577,53 +1907,15 @@ var testbench;
         problem = null;
         solvingFor = 0;
         stubs.empty();
-        var _iteratorNormalCompletion15 = true;
-        var _didIteratorError15 = false;
-        var _iteratorError15 = undefined;
-
-        try {
-            for (var _iterator15 = (setup['SQ'] || [])[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
-                var s = _step15.value;
-
-                stubs.add(stone.fromString(s));
-            }
-        } catch (err) {
-            _didIteratorError15 = true;
-            _iteratorError15 = err;
-        } finally {
-            try {
-                if (!_iteratorNormalCompletion15 && _iterator15['return']) {
-                    _iterator15['return']();
-                }
-            } finally {
-                if (_didIteratorError15) {
-                    throw _iteratorError15;
-                }
-            }
-        }
-
-        board = board.fork(); // drop the history of moves
-        renderBoard();
-    }
-    function removeStone(x, y) {
-        var b = new Board(board.size);
         var _iteratorNormalCompletion16 = true;
         var _didIteratorError16 = false;
         var _iteratorError16 = undefined;
 
         try {
-            for (var _iterator16 = board.stones()[Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+            for (var _iterator16 = (setup['SQ'] || [])[Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
                 var s = _step16.value;
 
-                var _stone$coords4 = stone.coords(s);
-
-                var _stone$coords42 = _slicedToArray(_stone$coords4, 2);
-
-                var sx = _stone$coords42[0];
-                var sy = _stone$coords42[1];
-
-                var c = stone.color(s);
-                if (sx != x || sy != y) b.play(stone.make(sx, sy, c));
+                stubs.add(stone.fromString(s));
             }
         } catch (err) {
             _didIteratorError16 = true;
@@ -1640,24 +1932,28 @@ var testbench;
             }
         }
 
-        board = b.fork(); // drop history      
+        board = board.fork(); // drop the history of moves
+        renderBoard();
     }
-    // removes all the stones in the selection
-    $(document).on('keyup', function (event) {
-        if (event.keyCode != 46 /* Delete */ || getSelectedAreaSize() < 2) return;
+    function removeStone(x, y) {
+        var b = new Board(board.size);
         var _iteratorNormalCompletion17 = true;
         var _didIteratorError17 = false;
         var _iteratorError17 = undefined;
 
         try {
-            for (var _iterator17 = listSelectedCoords()[Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
-                var _step17$value = _slicedToArray(_step17.value, 2);
+            for (var _iterator17 = board.stones()[Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
+                var s = _step17.value;
 
-                var x = _step17$value[0];
-                var y = _step17$value[1];
+                var _stone$coords4 = stone.coords(s);
 
-                if (board.get(x, y)) removeStone(x, y);
-                stubs.remove(stone.make(x, y, 0));
+                var _stone$coords42 = _slicedToArray(_stone$coords4, 2);
+
+                var sx = _stone$coords42[0];
+                var sy = _stone$coords42[1];
+
+                var c = stone.color(s);
+                if (sx != x || sy != y) b.play(stone.make(sx, sy, c));
             }
         } catch (err) {
             _didIteratorError17 = true;
@@ -1670,6 +1966,40 @@ var testbench;
             } finally {
                 if (_didIteratorError17) {
                     throw _iteratorError17;
+                }
+            }
+        }
+
+        board = b.fork(); // drop history      
+    }
+    // removes all the stones in the selection
+    $(document).on('keyup', function (event) {
+        if (event.keyCode != 46 /* Delete */ || getSelectedAreaSize() < 2) return;
+        var _iteratorNormalCompletion18 = true;
+        var _didIteratorError18 = false;
+        var _iteratorError18 = undefined;
+
+        try {
+            for (var _iterator18 = listSelectedCoords()[Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
+                var _step18$value = _slicedToArray(_step18.value, 2);
+
+                var x = _step18$value[0];
+                var y = _step18$value[1];
+
+                if (board.get(x, y)) removeStone(x, y);
+                stubs.remove(stone.make(x, y, 0));
+            }
+        } catch (err) {
+            _didIteratorError18 = true;
+            _iteratorError18 = err;
+        } finally {
+            try {
+                if (!_iteratorNormalCompletion18 && _iterator18['return']) {
+                    _iterator18['return']();
+                }
+            } finally {
+                if (_didIteratorError18) {
+                    throw _iteratorError18;
                 }
             }
         }
@@ -1699,27 +2029,27 @@ var testbench;
                     })();
                 };
                 var t = aim && shift(aim);
-                var _iteratorNormalCompletion18 = true;
-                var _didIteratorError18 = false;
-                var _iteratorError18 = undefined;
+                var _iteratorNormalCompletion19 = true;
+                var _didIteratorError19 = false;
+                var _iteratorError19 = undefined;
 
                 try {
-                    for (var _iterator18 = board.stones()[Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
-                        var s = _step18.value;
+                    for (var _iterator19 = board.stones()[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
+                        var s = _step19.value;
 
                         if (!b.play(shift(s))) return;
                     }
                 } catch (err) {
-                    _didIteratorError18 = true;
-                    _iteratorError18 = err;
+                    _didIteratorError19 = true;
+                    _iteratorError19 = err;
                 } finally {
                     try {
-                        if (!_iteratorNormalCompletion18 && _iterator18['return']) {
-                            _iterator18['return']();
+                        if (!_iteratorNormalCompletion19 && _iterator19['return']) {
+                            _iterator19['return']();
                         }
                     } finally {
-                        if (_didIteratorError18) {
-                            throw _iteratorError18;
+                        if (_didIteratorError19) {
+                            throw _iteratorError19;
                         }
                     }
                 }
@@ -1756,27 +2086,27 @@ var testbench;
                             return b.inBounds(q) ? q : 0;
                         })();
                     };
-                    var _iteratorNormalCompletion19 = true;
-                    var _didIteratorError19 = false;
-                    var _iteratorError19 = undefined;
+                    var _iteratorNormalCompletion20 = true;
+                    var _didIteratorError20 = false;
+                    var _iteratorError20 = undefined;
 
                     try {
-                        for (var _iterator19 = board.stones()[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
-                            var s = _step19.value;
+                        for (var _iterator20 = board.stones()[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
+                            var s = _step20.value;
 
                             if (!b.play(shift(s))) return;
                         }
                     } catch (err) {
-                        _didIteratorError19 = true;
-                        _iteratorError19 = err;
+                        _didIteratorError20 = true;
+                        _iteratorError20 = err;
                     } finally {
                         try {
-                            if (!_iteratorNormalCompletion19 && _iterator19['return']) {
-                                _iterator19['return']();
+                            if (!_iteratorNormalCompletion20 && _iterator20['return']) {
+                                _iterator20['return']();
                             }
                         } finally {
-                            if (_didIteratorError19) {
-                                throw _iteratorError19;
+                            if (_didIteratorError20) {
+                                throw _iteratorError20;
                             }
                         }
                     }
@@ -1811,27 +2141,27 @@ var testbench;
         console.log('Creating a SVG board...');
         ui = testbench.SVGGobanElement.create(board.size);
         updateBoard();
-        var _iteratorNormalCompletion20 = true;
-        var _didIteratorError20 = false;
-        var _iteratorError20 = undefined;
+        var _iteratorNormalCompletion21 = true;
+        var _didIteratorError21 = false;
+        var _iteratorError21 = undefined;
 
         try {
-            for (var _iterator20 = stubs[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
-                var s = _step20.value;
+            for (var _iterator21 = stubs[Symbol.iterator](), _step21; !(_iteratorNormalCompletion21 = (_step21 = _iterator21.next()).done); _iteratorNormalCompletion21 = true) {
+                var s = _step21.value;
 
                 ui.SQ.add(stone.x(s), stone.y(s));
             }
         } catch (err) {
-            _didIteratorError20 = true;
-            _iteratorError20 = err;
+            _didIteratorError21 = true;
+            _iteratorError21 = err;
         } finally {
             try {
-                if (!_iteratorNormalCompletion20 && _iterator20['return']) {
-                    _iterator20['return']();
+                if (!_iteratorNormalCompletion21 && _iterator21['return']) {
+                    _iterator21['return']();
                 }
             } finally {
-                if (_didIteratorError20) {
-                    throw _iteratorError20;
+                if (_didIteratorError21) {
+                    throw _iteratorError21;
                 }
             }
         }
@@ -1873,30 +2203,30 @@ var testbench;
                         selection.y2 = cy;
                         ui.SL.clear();
                         if (getSelectedAreaSize() > 1) {
-                            var _iteratorNormalCompletion21 = true;
-                            var _didIteratorError21 = false;
-                            var _iteratorError21 = undefined;
+                            var _iteratorNormalCompletion22 = true;
+                            var _didIteratorError22 = false;
+                            var _iteratorError22 = undefined;
 
                             try {
-                                for (var _iterator21 = listSelectedCoords()[Symbol.iterator](), _step21; !(_iteratorNormalCompletion21 = (_step21 = _iterator21.next()).done); _iteratorNormalCompletion21 = true) {
-                                    var _step21$value = _slicedToArray(_step21.value, 2);
+                                for (var _iterator22 = listSelectedCoords()[Symbol.iterator](), _step22; !(_iteratorNormalCompletion22 = (_step22 = _iterator22.next()).done); _iteratorNormalCompletion22 = true) {
+                                    var _step22$value = _slicedToArray(_step22.value, 2);
 
-                                    var x = _step21$value[0];
-                                    var y = _step21$value[1];
+                                    var x = _step22$value[0];
+                                    var y = _step22$value[1];
 
                                     ui.SL.add(x, y);
                                 }
                             } catch (err) {
-                                _didIteratorError21 = true;
-                                _iteratorError21 = err;
+                                _didIteratorError22 = true;
+                                _iteratorError22 = err;
                             } finally {
                                 try {
-                                    if (!_iteratorNormalCompletion21 && _iterator21['return']) {
-                                        _iterator21['return']();
+                                    if (!_iteratorNormalCompletion22 && _iterator22['return']) {
+                                        _iterator22['return']();
                                     }
                                 } finally {
-                                    if (_didIteratorError21) {
-                                        throw _iteratorError21;
+                                    if (_didIteratorError22) {
+                                        throw _iteratorError22;
                                     }
                                 }
                             }
@@ -1914,30 +2244,30 @@ var testbench;
                             dragy = cy;
                             ui.SL.clear();
                             if (getSelectedAreaSize() > 1) {
-                                var _iteratorNormalCompletion22 = true;
-                                var _didIteratorError22 = false;
-                                var _iteratorError22 = undefined;
+                                var _iteratorNormalCompletion23 = true;
+                                var _didIteratorError23 = false;
+                                var _iteratorError23 = undefined;
 
                                 try {
-                                    for (var _iterator22 = listSelectedCoords()[Symbol.iterator](), _step22; !(_iteratorNormalCompletion22 = (_step22 = _iterator22.next()).done); _iteratorNormalCompletion22 = true) {
-                                        var _step22$value = _slicedToArray(_step22.value, 2);
+                                    for (var _iterator23 = listSelectedCoords()[Symbol.iterator](), _step23; !(_iteratorNormalCompletion23 = (_step23 = _iterator23.next()).done); _iteratorNormalCompletion23 = true) {
+                                        var _step23$value = _slicedToArray(_step23.value, 2);
 
-                                        var x = _step22$value[0];
-                                        var y = _step22$value[1];
+                                        var x = _step23$value[0];
+                                        var y = _step23$value[1];
 
                                         ui.SL.add(x, y);
                                     }
                                 } catch (err) {
-                                    _didIteratorError22 = true;
-                                    _iteratorError22 = err;
+                                    _didIteratorError23 = true;
+                                    _iteratorError23 = err;
                                 } finally {
                                     try {
-                                        if (!_iteratorNormalCompletion22 && _iterator22['return']) {
-                                            _iterator22['return']();
+                                        if (!_iteratorNormalCompletion23 && _iterator23['return']) {
+                                            _iterator23['return']();
                                         }
                                     } finally {
-                                        if (_didIteratorError22) {
-                                            throw _iteratorError22;
+                                        if (_didIteratorError23) {
+                                            throw _iteratorError23;
                                         }
                                     }
                                 }
@@ -2129,7 +2459,7 @@ var testbench;
         return solve(op, board, color, km).then(function (move) {
             solving = null;
             if (move * color < 0) {
-                var _ret6 = (function () {
+                var _ret7 = (function () {
                     var note = color * board.get(aim) < 0 ? stone.label.string(color) + ' cannot capture the group' : stone.label.string(color) + ' cannot save the group';
                     console.log(note);
                     testbench.vm.note = note + ', searching for treats...';
@@ -2137,13 +2467,13 @@ var testbench;
                         v: Promise.resolve().then(function () {
                             var n = 0;
                             ui.SQ.clear();
-                            var _iteratorNormalCompletion23 = true;
-                            var _didIteratorError23 = false;
-                            var _iteratorError23 = undefined;
+                            var _iteratorNormalCompletion24 = true;
+                            var _didIteratorError24 = false;
+                            var _iteratorError24 = undefined;
 
                             try {
-                                for (var _iterator23 = problem.threats(color)[Symbol.iterator](), _step23; !(_iteratorNormalCompletion23 = (_step23 = _iterator23.next()).done); _iteratorNormalCompletion23 = true) {
-                                    var threat = _step23.value;
+                                for (var _iterator24 = problem.threats(color)[Symbol.iterator](), _step24; !(_iteratorNormalCompletion24 = (_step24 = _iterator24.next()).done); _iteratorNormalCompletion24 = true) {
+                                    var threat = _step24.value;
 
                                     var _stone$coords5 = stone.coords(stone.fromString(threat));
 
@@ -2156,16 +2486,16 @@ var testbench;
                                     ui.SQ.add(x, y);
                                 }
                             } catch (err) {
-                                _didIteratorError23 = true;
-                                _iteratorError23 = err;
+                                _didIteratorError24 = true;
+                                _iteratorError24 = err;
                             } finally {
                                 try {
-                                    if (!_iteratorNormalCompletion23 && _iterator23['return']) {
-                                        _iterator23['return']();
+                                    if (!_iteratorNormalCompletion24 && _iterator24['return']) {
+                                        _iterator24['return']();
                                     }
                                 } finally {
-                                    if (_didIteratorError23) {
-                                        throw _iteratorError23;
+                                    if (_didIteratorError24) {
+                                        throw _iteratorError24;
                                     }
                                 }
                             }
@@ -2176,7 +2506,7 @@ var testbench;
                     };
                 })();
 
-                if (typeof _ret6 === 'object') return _ret6.v;
+                if (typeof _ret7 === 'object') return _ret7.v;
             } else if (!stone.hascoords(move)) {
                 testbench.vm.note = stone.label.string(color) + ' passes';
             } else {
