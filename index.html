@@ -24,6 +24,9 @@
     <!-- jQuery mainly for Semantic UI, but it's now used by this app too. -->
     <script src="libs/jquery-3.0.0.js"></script>
 
+    <!-- DCNN to evaluate tsumego -->
+    <script src="dcnn.js"></script>
+
     <!-- The tsumego solver. -->
     <script>
         var mode = (/\bmode=(\w+)\b/.exec(location.search) || [])[1];
@@ -184,6 +187,10 @@
 
                     <button class="ui icon button" id="download" title="Download SGF">
                         <i class="download icon" style="color:green"></i>
+                    </button>
+
+                    <button class="ui icon button" id="dcnn" title="Evaluate with DCNN">
+                        <i class="bug icon" style="color:blue"></i>
                     </button>
                 </div>
             </div>

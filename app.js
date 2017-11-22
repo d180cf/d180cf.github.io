@@ -2526,5 +2526,19 @@ var testbench;
             throw err;
         });
     }
+    $(function () {
+        $('#dcnn').click(function () {
+            console.log('Evaluating DCNN at every intersection...');
+            for (var y = 0; y < board.size; y++) {
+                for (var x = 0; x < board.size; x++) {
+                    if (board.get(x, y)) {
+                        var p = evaldcnn(board, [x, y]);
+                        var s = ui.SQ.add(x, y);
+                        s.setAttribute('fill', p < 0.5 ? 'rgba(255, 0, 0, ' + (1 - 2 * p) + ')' : 'rgba(0, 255, 0, ' + (2 * p - 1) + ')');
+                    }
+                }
+            }
+        });
+    });
 })(testbench || (testbench = {}));
 //# sourceMappingURL=.bin/app.js.map

@@ -20,11 +20,11 @@ var tsumego;
 })(tsumego || (tsumego = {}));
 var tsumego;
 (function (tsumego) {
+    var color = undefined;
     (function (color) {
         color[color["black"] = 1] = "black";
         color[color["white"] = -1] = "white";
-    })(tsumego.color || (tsumego.color = {}));
-    var color = tsumego.color;
+    })(color = tsumego.color || (tsumego.color = {}));
 })(tsumego || (tsumego = {}));
 var tsumego;
 (function (tsumego) {
@@ -97,7 +97,6 @@ var tsumego;
 /// <reference path="sorted.ts" />
 var tsumego;
 (function (tsumego) {
-    tsumego.version = '0.1.0';
     tsumego.min = function (a, b) {
         return a < b ? a : b;
     };
@@ -228,16 +227,14 @@ var tsumego;
      *  r - depth at which repetition occurs
      *  k - who is the ko master: +1, 0, -1
      */
-    (function (stone) {})(tsumego.stone || (tsumego.stone = {}));
-    var stone = tsumego.stone;
-    var stone;
+    var stone = undefined;
+    (function (stone) {})(stone = tsumego.stone || (tsumego.stone = {}));
     (function (stone) {
         function make(x, y, color) {
             return x | y << 4 | kCoord | (color && kColor) | color & kWhite;
         }
         stone.make = make;
     })(stone = tsumego.stone || (tsumego.stone = {}));
-    var stone;
     (function (stone) {
         stone.nocoords = function (color) {
             return kColor | color & kWhite;
@@ -458,7 +455,7 @@ var tsumego;
      * of positions that proves the solution contains any of
      * b(i), then repd.get(solution) = i.
      */
-    var repd;
+    var repd = undefined;
     (function (repd_1) {
         repd_1.get = function (move) {
             return move >> 8 & 255;
@@ -467,9 +464,8 @@ var tsumego;
             return move & ~0xFF00 | repd << 8;
         };
     })(repd = tsumego.repd || (tsumego.repd = {}));
-    var stone;
     (function (stone) {
-        var km;
+        var km = undefined;
         (function (km_1) {
             km_1.get = function (s) {
                 return s << 3 >> 30;
@@ -479,9 +475,8 @@ var tsumego;
             };
         })(km = stone.km || (stone.km = {}));
     })(stone = tsumego.stone || (tsumego.stone = {}));
-    var stone;
     (function (stone) {
-        var label;
+        var label = undefined;
         (function (label_1) {
             /** W -> -1, B -> +1 */
             function color(label) {
@@ -498,7 +493,6 @@ var tsumego;
             label_1.string = string;
         })(label = stone.label || (stone.label = {}));
     })(stone = tsumego.stone || (tsumego.stone = {}));
-    var stone;
     (function (stone) {
         var n2s = function n2s(n) {
             return String.fromCharCode(n + 0x61);
@@ -532,16 +526,15 @@ var tsumego;
             return stone.make(x, y, c);
         }
         stone.fromString = fromString;
-        var list;
+        var list = undefined;
         (function (list) {
             list.toString = function (x) {
                 return '[' + x.map(stone.toString).join(',') + ']';
             };
         })(list = stone.list || (stone.list = {}));
     })(stone = tsumego.stone || (tsumego.stone = {}));
-    var stone;
     (function (stone) {
-        var cc;
+        var cc = undefined;
         (function (cc) {
             /** 0x25 -> "E2" */
             function toString(s, boardSize) {
@@ -578,7 +571,6 @@ var tsumego;
         return y;
     }
     tsumego.rand = rand;
-    var rand;
     (function (rand) {
         /**
          * By default it's initialized to Date.now(), but
@@ -991,9 +983,8 @@ var tsumego;
      * Since a block a removed when it loses its last liberty, blocks with
      * libs = 0 or size = 0 do not represent any real entity on the board.
      */
-    (function (block) {})(tsumego.block || (tsumego.block = {}));
-    var block = tsumego.block;
-    var block;
+    var block = undefined;
+    (function (block) {})(block = tsumego.block || (tsumego.block = {}));
     (function (block) {
         function make(xmin, xmax, ymin, ymax, libs, size, color) {
             return xmin | xmax << 4 | ymin << 8 | ymax << 12 | libs << 16 | size << 24 | color & 0x80000000;
@@ -1616,12 +1607,12 @@ var tsumego;
             var all = t === undefined;
             if (!all && !t) return;
 
-            var _ref43 = all || t == tsumego.color.black || t == tsumego.color.white ? [0, this.size - 1, 0, this.size - 1] : block.dims(t);
+            var _ref44 = all || t == tsumego.color.black || t == tsumego.color.white ? [0, this.size - 1, 0, this.size - 1] : block.dims(t);
 
-            var xmin = _ref43[0];
-            var xmax = _ref43[1];
-            var ymin = _ref43[2];
-            var ymax = _ref43[3];
+            var xmin = _ref44[0];
+            var xmax = _ref44[1];
+            var ymin = _ref44[2];
+            var ymax = _ref44[3];
 
             for (var x = xmin; x <= xmax; x++) {
                 for (var y = ymin; y <= ymax; y++) {
@@ -1733,6 +1724,15 @@ var tsumego;
             return n;
         };
 
+        Board.prototype.getBlockInfo = function getBlockInfo(x, y) {
+            var b = this.get(x, y);
+            return {
+                color: tsumego.sign(b),
+                libs: block.libs(b),
+                size: block.size(b)
+            };
+        };
+
         /** the sequence of moves that was given to .play(...) to get this position */
 
         _createClass(Board, [{
@@ -1795,7 +1795,7 @@ var tsumego;
                 a[i] = f(i);
             }return a;
         };
-        var vector;
+        var vector = undefined;
         (function (vector) {
             vector.zero = function (n) {
                 return from(n, function () {
@@ -1833,7 +1833,7 @@ var tsumego;
                 });
             };
         })(vector = linalg.vector || (linalg.vector = {}));
-        var matrix;
+        var matrix = undefined;
         (function (matrix) {
             matrix.zero = function (rows, cols) {
                 return from(rows, function () {
@@ -1959,14 +1959,14 @@ var tsumego;
 var tsumego;
 (function (tsumego) {
     var BitMatrix = tsumego.linalg.BitMatrix;
-    var tags;
+    var tags = undefined;
     (function (tags) {
-        tags[tags['x'] = 0] = 'x';
-        tags[tags['o'] = 1] = 'o';
-        tags[tags['#'] = 2] = '#';
-        tags[tags['-'] = 3] = '-';
-        tags[tags['X'] = 4] = 'X';
-        tags[tags['O'] = 5] = 'O';
+        tags[tags["x"] = 0] = "x";
+        tags[tags["o"] = 1] = "o";
+        tags[tags["#"] = 2] = "#";
+        tags[tags["-"] = 3] = "-";
+        tags[tags["X"] = 4] = "X";
+        tags[tags["O"] = 5] = "O";
         tags[tags["max"] = 6] = "max";
     })(tags || (tags = {}));
     var same = function same(m, b) {
@@ -2155,7 +2155,6 @@ var tsumego;
         });
     })(stat = tsumego.stat || (tsumego.stat = {}));
 })(tsumego || (tsumego = {}));
-var tsumego;
 (function (tsumego) {
     // this is something like the sigmoid function
     // to map values to [-1, +1] range, but it's
@@ -2190,7 +2189,17 @@ var tsumego;
             // correct in 98 % cases
             var v = values.get(hash_b, hash_w) || ++tsumego.stat.nodes &&
             // maximize the number of captured stones first
-            +tsumego.sigmoid(board.nstones(color) - board.nstones(-color)) + Math.pow(8, -1) * tsumego.sigmoid(board.natari(-color)) + Math.pow(8, -2) * tsumego.sigmoid(n * color * tsumego.sign(t)) - Math.pow(8, -3) * tsumego.sigmoid(board.sumlibs(-color)) - Math.pow(8, -4) * tsumego.sigmoid(board.natari(color)) + Math.pow(8, -5) * tsumego.sigmoid(board.sumlibs(color));
+            +tsumego.sigmoid(board.nstones(color) - board.nstones(-color))
+            // atari as many blocks of the opponent as possible
+             + Math.pow(8, -1) * tsumego.sigmoid(board.natari(-color))
+            // maximize/minimize the number of libs of the target
+             + Math.pow(8, -2) * tsumego.sigmoid(n * color * tsumego.sign(t))
+            // minimize the number of libs of all blocks of the opponent
+             - Math.pow(8, -3) * tsumego.sigmoid(board.sumlibs(-color))
+            // minimize the number of own blocks in atari
+             - Math.pow(8, -4) * tsumego.sigmoid(board.natari(color))
+            // maximize the number of own libs
+             + Math.pow(8, -5) * tsumego.sigmoid(board.sumlibs(color));
             values.set(hash_b, hash_w, v);
             // abs(v) < 1 + 1/8 + 1/64 + ... = 8/7
             // v = �1 should indicate a sure loss/win
@@ -2627,6 +2636,7 @@ var tsumego;
                         xmax = dmap.xmax;
                         ymin = dmap.ymin;
                         ymax = dmap.ymax;
+                        ///console.log(`d=${d} x=${xmin}..${xmax} y=${ymin}..${ymax}`);
                     }
                     var moves = [];
                     var rzone = [];
@@ -2818,7 +2828,6 @@ var tsumego;
         });
     })(stat = tsumego.stat || (tsumego.stat = {}));
 })(tsumego || (tsumego = {}));
-var tsumego;
 (function (tsumego) {
     /**
      * 0               1               2
@@ -2839,16 +2848,14 @@ var tsumego;
      * Obviously, w < b, as otherwise the status would be ambiguous.
      * This implies that the zero entry is not valid.
      */
-    var entry;
+    var entry = undefined;
     (function (entry) {})(entry || (entry = {}));
-    var entry;
     (function (entry) {
         function make(x, y, b, w, m, c) {
             return x | y << 4 | (b & 7) << 8 | (w & 7) << 11 | (m ? 0x8000 : 0) | (c > 0 ? 0x4000 : 0);
         }
         entry.make = make;
     })(entry || (entry = {}));
-    var entry;
     (function (entry) {
         entry.x = function (e) {
             return e & 15;
@@ -3231,7 +3238,6 @@ var tsumego;
  * en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Extended_Euclidean_algorithm
  * search.cpan.org/~dmalone/Math-FastGF2-0.04/lib/Math/FastGF2.pm
  */
-var tsumego;
 (function (tsumego) {
     var gf32;
     (function (gf32) {
@@ -3553,7 +3559,6 @@ var tsumego;
         });
     })(stat = tsumego.stat || (tsumego.stat = {}));
 })(tsumego || (tsumego = {}));
-var tsumego;
 (function (tsumego) {
     function solve(args) {
         var g = solve.start(args);
@@ -3562,7 +3567,6 @@ var tsumego;
         return s.value;
     }
     tsumego.solve = solve;
-    var solve;
     (function (solve_1) {
         function* start(args) {
             var board = args.board;
@@ -3683,7 +3687,37 @@ var tsumego;
                     sa.insert(tsumego.repd.set(_move2, d), [
                     // moves that require a ko treat are considered last
                     // that's not just perf optimization: the search depends on this
-                    -1 / d + Math.pow(8, -1) * (guess * color > 0 && tsumego.stone.same(guess, _move2) ? 1 : 0) + Math.pow(8, -2) * tsumego.sign(moves.length > 3 ? tt.get(_hash_b, _hash_w, -color, null) * color : 0) + Math.pow(8, -3) * tsumego.sigmoid(_npeyes * tsumego.sign(target) * color) + Math.pow(8, -4) * value + Math.pow(8, -7) * tsumego.sigmoid(eulerv * color * tsumego.sign(target)) + Math.pow(8, -15) * (tsumego.random() - 0.5)]);
+                    -1 / d
+                    // tt guesses the correct winning move in 83% of cases,
+                    // but here this heuristics makes no difference at all
+                     + Math.pow(8, -1) * (guess * color > 0 && tsumego.stone.same(guess, _move2) ? 1 : 0)
+                    // first consider moves that lead to a winning position
+                    // use previously found solution as a hint; this makes
+                    // a huge impact on the perf: not using this trick
+                    // makes the search 3-4x slower
+                     + Math.pow(8, -2) * tsumego.sign(moves.length > 3 ? tt.get(_hash_b, _hash_w, -color, null) * color : 0)
+                    // increase eyeness of the target group
+                     + Math.pow(8, -3) * tsumego.sigmoid(_npeyes * tsumego.sign(target) * color)
+                    // now consider the evaluation of this position
+                     + Math.pow(8, -4) * value
+                    // the euler number is the number of objects
+                    // minus the number of holes; it pretty much
+                    // estimates the eyeness of the target group;
+                    // however as of now this heuristics doesn't
+                    // do much; maybe it'll be useful once iterative
+                    // deepening search is implemented
+                     + Math.pow(8, -7) * tsumego.sigmoid(eulerv * color * tsumego.sign(target))
+                    // if everything above is the same, pick a random move;
+                    // in JS floating point numbers are 64 bit with 53 bits
+                    // in the significant precision; this means that the
+                    // this smallest term can be at most 2**52 times smaller
+                    // then the biggest term (which is -1/d) as otherwise
+                    // this small random addition will be lost; also, the
+                    // number of digits (binary digits) in this random
+                    // addition should be sufficiently large; here the 8**15
+                    // factor leaves it 52 - 3 * 15 = 7 digits, which lets
+                    // the random term have 128 possible values
+                     + Math.pow(8, -15) * (tsumego.random() - 0.5)]);
                 }
                 // Consider making a pass as well. Passing locally is like
                 // playing a move elsewhere and yielding the turn to the
@@ -4020,6 +4054,35 @@ var tsumego;
         };
 
         /**
+         * Returns valid moves for the given player.
+         * This function does not take repetitions
+         * into account as this depends on who is
+         * the ko master.
+         */
+
+        Solver.prototype.getValidMovesFor = function* getValidMovesFor(color) {
+            for (var _iterator39 = this.args.expand(color), _isArray39 = Array.isArray(_iterator39), _i39 = 0, _iterator39 = _isArray39 ? _iterator39 : _iterator39[Symbol.iterator]();;) {
+                var _ref38;
+
+                if (_isArray39) {
+                    if (_i39 >= _iterator39.length) break;
+                    _ref38 = _iterator39[_i39++];
+                } else {
+                    _i39 = _iterator39.next();
+                    if (_i39.done) break;
+                    _ref38 = _i39.value;
+                }
+
+                var move = _ref38;
+
+                if (this.board.play(move)) {
+                    this.board.undo();
+                    yield move;
+                }
+            }
+        };
+
+        /**
          * Finds all possible threats for the specified player.
          * A threat is a move that doesn't work by itself, but
          * if the opponent ignores it, the next move does work.
@@ -4040,19 +4103,19 @@ var tsumego;
                 color = tsumego.stone.label.color(color);
                 if (!color) throw Error('Invalid color value. Consider W or B.');
             }
-            for (var _iterator39 = this.args.expand(color), _isArray39 = Array.isArray(_iterator39), _i39 = 0, _iterator39 = _isArray39 ? _iterator39 : _iterator39[Symbol.iterator]();;) {
-                var _ref38;
+            for (var _iterator40 = this.args.expand(color), _isArray40 = Array.isArray(_iterator40), _i40 = 0, _iterator40 = _isArray40 ? _iterator40 : _iterator40[Symbol.iterator]();;) {
+                var _ref39;
 
-                if (_isArray39) {
-                    if (_i39 >= _iterator39.length) break;
-                    _ref38 = _iterator39[_i39++];
+                if (_isArray40) {
+                    if (_i40 >= _iterator40.length) break;
+                    _ref39 = _iterator40[_i40++];
                 } else {
-                    _i39 = _iterator39.next();
-                    if (_i39.done) break;
-                    _ref38 = _i39.value;
+                    _i40 = _iterator40.next();
+                    if (_i40.done) break;
+                    _ref39 = _i40.value;
                 }
 
-                var move = _ref38;
+                var move = _ref39;
 
                 if (this.args.board.play(move)) {
                     var resp = this.solve(color);
@@ -4068,19 +4131,19 @@ var tsumego;
             var move = this.solve(color);
             var km = tsumego.stone.km.get(move);
             if (move * color < 0) return;
-            for (var _iterator40 = this.args.expand(color), _isArray40 = Array.isArray(_iterator40), _i40 = 0, _iterator40 = _isArray40 ? _iterator40 : _iterator40[Symbol.iterator]();;) {
-                var _ref39;
+            for (var _iterator41 = this.args.expand(color), _isArray41 = Array.isArray(_iterator41), _i41 = 0, _iterator41 = _isArray41 ? _iterator41 : _iterator41[Symbol.iterator]();;) {
+                var _ref40;
 
-                if (_isArray40) {
-                    if (_i40 >= _iterator40.length) break;
-                    _ref39 = _iterator40[_i40++];
+                if (_isArray41) {
+                    if (_i41 >= _iterator41.length) break;
+                    _ref40 = _iterator41[_i41++];
                 } else {
-                    _i40 = _iterator40.next();
-                    if (_i40.done) break;
-                    _ref39 = _i40.value;
+                    _i41 = _iterator41.next();
+                    if (_i41.done) break;
+                    _ref40 = _i41.value;
                 }
 
-                var _move5 = _ref39;
+                var _move5 = _ref40;
 
                 if (!this.play(_move5)) continue;
                 // can the opponent win with the same km level?
@@ -4175,19 +4238,19 @@ var tsumego;
 
             function* deepen(tree) {
                 var sgf = board.sgf;
-                for (var _iterator41 = expand(color), _isArray41 = Array.isArray(_iterator41), _i41 = 0, _iterator41 = _isArray41 ? _iterator41 : _iterator41[Symbol.iterator]();;) {
-                    var _ref40;
+                for (var _iterator42 = expand(color), _isArray42 = Array.isArray(_iterator42), _i42 = 0, _iterator42 = _isArray42 ? _iterator42 : _iterator42[Symbol.iterator]();;) {
+                    var _ref41;
 
-                    if (_isArray41) {
-                        if (_i41 >= _iterator41.length) break;
-                        _ref40 = _iterator41[_i41++];
+                    if (_isArray42) {
+                        if (_i42 >= _iterator42.length) break;
+                        _ref41 = _iterator42[_i42++];
                     } else {
-                        _i41 = _iterator41.next();
-                        if (_i41.done) break;
-                        _ref40 = _i41.value;
+                        _i42 = _iterator42.next();
+                        if (_i42.done) break;
+                        _ref41 = _i42.value;
                     }
 
-                    var _move6 = _ref40;
+                    var _move6 = _ref41;
 
                     if (board.play(_move6)) {
                         var subtree = add(tree, _move6);
@@ -4201,19 +4264,19 @@ var tsumego;
                                 var hasThreats = false;
                                 // check if there are any threats before
                                 // bothering the user to pick one
-                                for (var _iterator42 = self.threats(-color), _isArray42 = Array.isArray(_iterator42), _i42 = 0, _iterator42 = _isArray42 ? _iterator42 : _iterator42[Symbol.iterator]();;) {
-                                    var _ref41;
+                                for (var _iterator43 = self.threats(-color), _isArray43 = Array.isArray(_iterator43), _i43 = 0, _iterator43 = _isArray43 ? _iterator43 : _iterator43[Symbol.iterator]();;) {
+                                    var _ref42;
 
-                                    if (_isArray42) {
-                                        if (_i42 >= _iterator42.length) break;
-                                        _ref41 = _iterator42[_i42++];
+                                    if (_isArray43) {
+                                        if (_i43 >= _iterator43.length) break;
+                                        _ref42 = _iterator43[_i43++];
                                     } else {
-                                        _i42 = _iterator42.next();
-                                        if (_i42.done) break;
-                                        _ref41 = _i42.value;
+                                        _i43 = _iterator43.next();
+                                        if (_i43.done) break;
+                                        _ref42 = _i43.value;
                                     }
 
-                                    var threat = _ref41;
+                                    var threat = _ref42;
 
                                     hasThreats = true;
                                     break;
@@ -4227,7 +4290,8 @@ var tsumego;
                                     // moves that the losing player can make; such
                                     // moves are also called ko treats and it's
                                     // better to maximize the number of ko treats
-                                    var threat = board.hash in cache ? cache[board.hash] : (yield tsumego.stone.label.string(-color));
+                                    var threat = board.hash in cache ? cache[board.hash] : ( // don't bother the user twice for the same position
+                                    yield tsumego.stone.label.string(-color));
                                     cache[board.hash] = threat;
                                     // the UI gives null if the variation needs to end here
                                     if (threat) {
@@ -4300,19 +4364,19 @@ var tsumego;
             var root = {};
             while (true) {
                 var size = treesize.get(root) || 0;
-                for (var _iterator43 = leaves(root), _isArray43 = Array.isArray(_iterator43), _i43 = 0, _iterator43 = _isArray43 ? _iterator43 : _iterator43[Symbol.iterator]();;) {
-                    var _ref42;
+                for (var _iterator44 = leaves(root), _isArray44 = Array.isArray(_iterator44), _i44 = 0, _iterator44 = _isArray44 ? _iterator44 : _iterator44[Symbol.iterator]();;) {
+                    var _ref43;
 
-                    if (_isArray43) {
-                        if (_i43 >= _iterator43.length) break;
-                        _ref42 = _iterator43[_i43++];
+                    if (_isArray44) {
+                        if (_i44 >= _iterator44.length) break;
+                        _ref43 = _iterator44[_i44++];
                     } else {
-                        _i43 = _iterator43.next();
-                        if (_i43.done) break;
-                        _ref42 = _i43.value;
+                        _i44 = _iterator44.next();
+                        if (_i44.done) break;
+                        _ref43 = _i44.value;
                     }
 
-                    var _leaf = _ref42;
+                    var _leaf = _ref43;
 
                     if (terminal.get(_leaf)) continue;
                     try {
@@ -4372,6 +4436,11 @@ var tsumego;
             key: "board",
             get: function get() {
                 return this.args.board;
+            }
+        }, {
+            key: "target",
+            get: function get() {
+                return this.args.target;
             }
         }]);
 
